@@ -1,0 +1,449 @@
+/* ============================================================================
+   Primitives —— 基礎元件樣式
+   「去 AI 味」的具體落點：所有互動狀態都用 1px 邊框與極輕的底色變化表達，
+   不用彩色漸層、不用發光、不用彩色陰影。
+   ========================================================================== */
+
+/* ---- Button ------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out),
+    transform var(--dur-1) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
+}
+.btn:active:not(:disabled) {
+  /* 幾乎看不見的下壓：讓點擊「有手感」而不誇張 */
+  transform: scale(0.985);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-1);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn--primary:active:not(:disabled) {
+  background: var(--accent-press);
+}
+
+.btn--secondary {
+  background: var(--bg-raised);
+  color: var(--fg-primary);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-primary);
+}
+
+.btn--sm {
+  height: 24px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-caption);
+}
+.btn--block {
+  width: 100%;
+}
+
+/* ---- Field (label + control) -------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.field__label {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--fg-secondary);
+  letter-spacing: var(--ls-caption);
+}
+.field__hint {
+  font-size: var(--fs-caption);
+  color: var(--fg-tertiary);
+  line-height: var(--lh-normal);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-3);
+  height: 30px;
+  color: var(--fg-primary);
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out);
+}
+.textarea {
+  height: auto;
+  min-height: 76px;
+  padding: var(--sp-2) var(--sp-3);
+  line-height: var(--lh-normal);
+  resize: vertical;
+}
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: var(--line-strong);
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+  outline: none;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--fg-tertiary);
+}
+.input,
+.textarea {
+  user-select: text;
+  cursor: text;
+}
+
+.select {
+  appearance: none;
+  padding-right: var(--sp-6);
+  cursor: default;
+  /* 自繪 chevron：原生箭頭在各平台長相不一，破壞質感 */
+  background-image: linear-gradient(45deg, transparent 50%, var(--fg-secondary) 50%),
+    linear-gradient(135deg, var(--fg-secondary) 50%, transparent 50%);
+  background-position:
+    right 15px center,
+    right 10px center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ---- Toggle ------------------------------------------------------------- */
+.toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--line-hairline);
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+.toggle[data-on='true'] {
+  background: var(--accent);
+  box-shadow: none;
+}
+.toggle__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  /* 唯一使用彈性曲線的地方：開關是狀態確認，值得一點回饋 */
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.toggle[data-on='true'] .toggle__knob {
+  transform: translateX(16px);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+}
+.toggle-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.toggle-row__title {
+  font-size: var(--fs-body);
+  color: var(--fg-primary);
+}
+.toggle-row__desc {
+  font-size: var(--fs-caption);
+  color: var(--fg-tertiary);
+}
+
+/* ---- Segmented control -------------------------------------------------- */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--bg-canvas);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 0 0 1px var(--line-hairline);
+}
+.segmented__item {
+  padding: 0 var(--sp-3);
+  height: 24px;
+  border-radius: 5px;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--fg-secondary);
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+.segmented__item:hover {
+  color: var(--fg-primary);
+}
+.segmented__item[aria-selected='true'] {
+  background: var(--bg-raised);
+  color: var(--fg-primary);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---- Status dot --------------------------------------------------------- */
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  flex: 0 0 auto;
+  background: var(--fg-tertiary);
+}
+.dot--ok {
+  background: var(--ok);
+}
+.dot--warn {
+  background: var(--warn);
+}
+.dot--danger {
+  background: var(--danger);
+}
+.dot--busy {
+  background: var(--accent);
+  animation: pulse 1.4s var(--ease-inout) infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ---- Section ------------------------------------------------------------ */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.section__title {
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-micro);
+  text-transform: uppercase;
+  color: var(--fg-tertiary);
+}
+.divider {
+  height: 1px;
+  background: var(--line-hairline);
+  border: 0;
+  margin: 0;
+}
+
+/* ---- Select（自製下拉；原生 <select> 的彈出清單無法套樣式，故整顆重建）--- */
+.xselect {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  height: 30px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-sm);
+  color: var(--fg-primary);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: default;
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out);
+}
+.xselect:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+.xselect:focus-visible,
+.xselect[data-open='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+  outline: none;
+}
+.xselect:disabled {
+  opacity: 0.4;
+}
+.xselect__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xselect__value[data-placeholder='true'] {
+  color: var(--fg-tertiary);
+}
+.xselect__note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-caption);
+  color: var(--fg-tertiary);
+}
+.xselect__chevron {
+  flex: 0 0 auto;
+  color: var(--fg-secondary);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.xselect[data-open='true'] .xselect__chevron {
+  transform: rotate(180deg);
+}
+
+/* 面板用 fixed 定位：避開側欄 overflow 裁切。層級高於設定浮層。 */
+.xselect__panel {
+  position: fixed;
+  min-width: 0;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--sp-1);
+  background: var(--material-thick);
+  backdrop-filter: blur(var(--blur-material)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--blur-material)) saturate(1.6);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  animation: xselect-in var(--dur-2) var(--ease-out);
+  transform-origin: top center;
+}
+.xselect__panel[data-drop='up'] {
+  transform-origin: bottom center;
+}
+.xselect__search {
+  flex: 0 0 auto;
+  width: calc(100% - 12px);
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 6px;
+}
+@keyframes xselect-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+.xselect__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.xselect__option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-2);
+  border-radius: 5px;
+  font-size: var(--fs-body);
+  color: var(--fg-primary);
+  cursor: default;
+}
+/* 鍵盤與滑鼠共用同一個 active 視覺：兩套高亮同時存在會讓人搞不清焦點在哪 */
+.xselect__option[data-active='true'] {
+  background: var(--bg-hover);
+}
+.xselect__option[aria-disabled='true'] {
+  color: var(--fg-tertiary);
+}
+.xselect__option[aria-disabled='true'][data-active='true'] {
+  background: transparent;
+}
+.xselect__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 勾記永遠占位，避免選取時整列文字左右跳動 */
+.xselect__tick {
+  flex: 0 0 auto;
+  color: var(--accent);
+  opacity: 0;
+}
+.xselect__option[aria-selected='true'] .xselect__tick {
+  opacity: 1;
+}
+
+/* --- 選項群組小標題 ---------------------------------------------------------
+   用來分辨「這一段選項是什麼」。刻意做得比選項文字小一級、字距放寬、
+   顏色壓到 tertiary：它是分隔線的替代品，不該和可點選的項目搶注意力。 */
+.xselect__group + .xselect__group .xselect__grouplabel,
+.xselect__list > div + .xselect__group .xselect__grouplabel {
+  margin-top: var(--sp-2);
+  border-top: 1px solid var(--line-hairline);
+  padding-top: var(--sp-2);
+}
+.xselect__grouplabel {
+  padding: var(--sp-1) var(--sp-2) 3px;
+  font-size: var(--fs-caption);
+  font-weight: 590;
+  letter-spacing: 0.04em;
+  color: var(--fg-tertiary);
+  text-transform: none;
+  user-select: none;
+}
+

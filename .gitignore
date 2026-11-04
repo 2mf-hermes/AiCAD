@@ -1,0 +1,28 @@
+# --- Node ---
+node_modules/
+dist/
+
+# --- go:embed 來源（由 build.ps1 從 dist/ 複製產生，不進版控）---
+web/
+
+# --- 建置產物 ---
+dist-exe/
+*.exe
+*.syso
+!rsrc_windows_amd64.syso
+build-log.txt
+tool-output/
+tools/implement-references.py
+scripts/add-source-label.ps1
+
+# --- 編輯器 / 系統 ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# --- 本機設定與憑證（絕對不可進版控）---
+*.local
+.env
+.env.*
+aicad-settings.json

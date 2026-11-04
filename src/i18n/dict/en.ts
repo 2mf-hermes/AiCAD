@@ -1,0 +1,292 @@
+import type { Dict } from './zh-Hant';
+
+/* English — uses ISO/ASME drafting vocabulary rather than literal translations
+   of the Chinese source (e.g. 「立面／剖面」 → "Elevation / Section"). */
+
+export const en: Dict = {
+  app: {
+    untitled: 'Untitled',
+    docTitle: (n, w, h) => `Drawing ${n} · ${w}×${h}`,
+    exportPng: 'Export PNG',
+    preferences: 'Preferences',
+  },
+
+  common: {
+    save: 'Save', edit: 'Edit',
+    cancel: 'Cancel',
+    remove: 'Remove',
+    close: 'Close',
+    done: 'Done',
+    add: 'Add',
+    name: 'Name',
+    never: 'Never',
+  },
+
+  left: {
+    title: 'Drawing spec',
+    generate: 'Generate drawing',
+    generating: 'Generating…',
+    noEngine: 'No image engine is enabled yet. Open Preferences to set one up.',
+  },
+
+  stage: {
+    maskMode: 'Region select',
+    maskModeHint: 'Region select (inpainting)',
+    grid: 'Grid',
+  },
+
+  intent: {
+    kindSection: 'Drawing type',
+    kindLabel: 'Category',
+    kindHint: 'Determines view layout and annotation conventions',
+    subject: 'Subject',
+    subjectHint: 'Describe structure, features and counts precisely',
+    subjectPlaceholder:
+      'e.g. Flanged bearing housing, four M8 counterbored holes symmetrically placed, central ⌀40 bore with seal groove, gussets on both sides of the base',
+
+    textLanguage: 'Drawing text language',
+    textLanguageHint: 'Controls title blocks, labels, notes and callouts; dimensions and standard symbols remain unchanged',
+
+    dimsSection: 'Key dimensions',
+    dimsEmpty:
+      'No dimensions yet. Left empty, the model infers proportions; once filled in, the exact values are required to appear on the drawing.',
+    dimValuePlaceholder: '120',
+    removeRow: (name) => `Remove ${name}`,
+    thisRow: 'this row',
+    unit: 'Unit',
+
+    specSection: 'Drafting standard',
+    projection: 'Projection',
+    projectionHint: 'First angle is the ISO convention; third angle is ANSI',
+    firstAngle: 'First angle',
+    thirdAngle: 'Third angle',
+    lineStyle: 'Line style',
+
+    dimensions: 'Dimensioning',
+    dimensionsHint: 'Extension lines, dimension lines and values',
+    tolerance: 'Tolerances',
+    toleranceHint: 'Annotate ± values beside key dimensions',
+    gdt: 'GD&T',
+    gdtHint: 'Flatness, concentricity and perpendicularity symbols',
+    callouts: 'Balloon callouts',
+    titleBlock: 'Title block',
+    titleBlockHint: 'ISO 7200 style, bottom-right corner',
+    scaleBar: 'Scale bar',
+
+    extraSection: 'Additional constraints',
+    notes: 'Extra requirements',
+    notesPlaceholder: 'e.g. Add an A-A section view top right at 1:2',
+    exclude: 'Exclusions',
+    excludeHint: 'Comma separated; lighting, shadows and backgrounds are already excluded',
+    excludePlaceholder: 'perspective distortion, handwriting',
+  },
+
+  drawingLanguage: {
+    'zh-Hant': 'Traditional Chinese', 'zh-Hans': 'Simplified Chinese', en: 'English', ja: 'Japanese', ko: 'Korean', none: 'No text',
+  },
+
+  group: {
+    mechanical: 'Mechanical',
+    architectural: 'Architectural',
+    system: 'Systems & layout',
+    formal: 'Production drawings',
+    sketch: 'Concept sketch',
+  },
+
+  kind: {
+    'mechanical-part': 'Mechanical part',
+    assembly: 'Assembly',
+    'floor-plan': 'Floor plan',
+    elevation: 'Elevation / section',
+    electrical: 'Electrical wiring',
+    piping: 'Piping P&ID',
+    schematic: 'Block schematic',
+    'exploded-view': 'Exploded view',
+  },
+
+  lineStyle: {
+    'technical-ink': 'Technical ink',
+    blueprint: 'Blueprint',
+    'pencil-draft': 'Pencil draft',
+    'cad-vector': 'CAD vector',
+  },
+
+  provider: {
+    saveBeforeClosing: 'An AI Provider is being edited. Save the changes before finishing Preferences?',
+    add: 'Add Provider', duplicate: 'Duplicate', delete: 'Delete', moveUp: 'Raise priority', moveDown: 'Lower priority',
+    type: 'Provider type', typeHint: 'Choose a built-in protocol, compatible API, custom gateway or local service',
+    priority: 'Priority', priorityHint: 'Lower numbers run first; failures fall through in order',
+    fallbackEnabled: 'Join fallback chain', fallbackEnabledHint: 'Allow this Provider to take over after another engine fails',
+    textFallbackEnabled: 'Text model fallback', textFallbackEnabledHint: 'Allow the text model to take over prompt refinement',
+    imageFallbackEnabled: 'Image model fallback', imageFallbackEnabledHint: 'Allow the image model to take over generation and inpainting',
+    endpoint: 'Endpoint', endpointHint: 'Relative path or absolute URL',
+    retryCount: 'Retry count', retryHint: 'Retry 0 to 5 times before falling back to the next Provider',
+    authentication: 'Authentication', authHint: 'Credentials remain in Windows DPAPI and are never written to settings',
+    authNone: 'None', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
+    headers: 'Custom headers', headersHint: 'One per line: Header: value',
+    requestFormat: 'Request format', requestFormatHint: 'JSON template supporting {{prompt}}, {{model}} and {{mode}}',
+    textPath: 'Text response path', imagePath: 'Image response path', dotPath: 'JSON dot path',
+    loadModels: 'Load models', models: 'Models', modelsHint: 'Select a model returned by the endpoint', modelsFound: (count: number) => `${count} models found`,
+    typeOpenAICompatible: 'OpenAI compatible', typeCustom: 'Custom Relay / Gateway', typeLocal: 'Local LLM',
+  },
+
+  right: {
+    titleInpaint: 'Inpainting',
+    titleEngine: 'Engine & history',
+    imageEngine: 'Image engine',
+    disabledSuffix: ' (disabled)',
+    noRefine: 'No prompt refinement',
+    refineWith: (name) => `Refine with ${name}`,
+    refineOn:
+      'Refinement compiles loose descriptions into precise geometry. Annotation rules are untouched.',
+    refineOff: 'Enable a text engine to refine geometry descriptions automatically.',
+    refineEngine: 'Prompt refinement engine',
+    groupCloud: 'Cloud engines',
+    groupLocal: 'Local engines',
+    groupOff: 'Off',
+
+    masks: 'Regions',
+    maskLabel: (i) => `Region ${i}`,
+    maskEmptyReady: 'Turn on region select, then drag on the drawing to mark an area to change.',
+    maskEmptyNoImage: 'Generate a drawing first to use inpainting.',
+    maskPlaceholder: 'What should change here? e.g. add an A-A section line and a ⌀12 through hole',
+    redraw: 'Redraw regions',
+
+    history: 'History',
+    historyEmpty: 'Every generation and redraw is kept so you can compare and go back.',
+
+    params: 'Run details',
+    engine: 'Engine',
+    model: 'Model',
+    resolvedPrompt: 'Resolved prompt',
+    resolvedPromptHint: 'Select all to copy — useful for reproducing or debugging',
+  },
+
+  status: {
+    ready: (name) => `Ready · ${name}`,
+    noEngine: 'No engine configured',
+    preparing: 'Preparing',
+    maskMode: 'Region select',
+    viewMode: 'View mode',
+    history: (n) => `History ${n}`,
+    elapsed: (sec, limitSec) => `Waiting ${sec}s / limit ${limitSec}s`,
+    timedOut: (limitSec) =>
+      `Timed out: no response after ${limitSec}s. Raise the engine's timeout in Preferences, or verify the endpoint and model name.`,
+  },
+
+  project: {
+    newProject: 'New project', openProject: 'Open project', saveProject: 'Save project',
+    namePrompt: 'Project name', newConfirm: 'Create a new project? Unsaved changes will be lost.',
+    closeTitle: 'Save changes?', closeConfirm: 'This project has unsaved changes. Save them before closing?', discardChanges: "Don't Save",
+    openTitle: 'Open project', openHint: 'Continue editing a recently saved work', empty: 'No projects have been saved yet.',
+    meta: (when: string, boards: number) => `${when} · ${boards} versions`,
+    deleteConfirm: 'Delete this project? This cannot be undone.',
+    saveFailed: (reason: string) => `Could not save project: ${reason}`,
+    loadFailed: (reason: string) => `Could not load project: ${reason}`,
+    deleteFailed: (reason: string) => `Could not delete project: ${reason}`,
+  },
+
+  settings: {
+    title: 'Preferences',
+    navGeneral: 'General',
+    navModels: 'AI models',
+    navUpdates: 'Updates',
+    navAbout: 'About',
+
+    appearance: 'Appearance',
+    themeDark: 'Dark',
+    themeLight: 'Light',
+    themeSystem: 'System',
+
+    language: 'Language',
+    languageLabel: 'Interface language',
+    languageHint: 'Applied immediately and stored with your settings',
+
+    canvas: 'Canvas',
+    canvasWidth: 'Default width',
+    canvasHeight: 'Default height',
+    canvasHint: 'Pixels; used as the output aspect ratio when generating',
+
+    engineList: 'AI engines',
+    local: 'Local',
+    cloud: 'Cloud',
+    capImage: 'Image',
+    capInpaint: 'Inpaint',
+    capText: 'Text',
+
+    engineSection: 'Engine',
+    localNoAuth: 'Local service, no credentials needed',
+    cloudService: 'Cloud service',
+    enableEngine: 'Enable this engine',
+    enableEngineHint: 'Only enabled engines appear in the generation panel',
+    capImageFull: 'Image generation',
+    capInpaintFull: 'Inpainting',
+    capTextFull: 'Prompt refinement',
+    capVisionFull: 'Vision',
+
+    connection: 'Connection',
+    displayName: 'Display name',
+    displayNameHint: 'Rename it to something recognisable, e.g. "Company relay"',
+    baseUrl: 'Base URL',
+    baseUrlDefault: (url) => `Leave empty to use the default: ${url}`,
+    baseUrlRelay: 'For relays, enter the full endpoint — usually ending in /v1',
+    apiKey: 'API credential',
+    apiKeyOsHint: 'Encrypted by Windows (DPAPI, bound to this account) and kept out of the settings file',
+    apiKeySessionHint: 'Dev mode: held for this session only and cleared when the window closes',
+    apiKeyPlaceholder: 'Paste API key',
+    textModel: 'Text model',
+    textModelHint: 'Used for prompt refinement',
+    imageModel: 'Image model',
+    imageModelHint: 'Used for generation and inpainting',
+    imageModelPlaceholder: '(use the server’s current model)',
+    notSupported: 'Not supported by this engine',
+    timeout: 'Timeout (s)',
+    timeoutLocalHint: 'Local inference: 300 or more recommended',
+    timeoutCloudHint: '60–120 recommended',
+
+    probe: 'Test connection',
+    probing: 'Testing…',
+    probeIdle: 'Not tested',
+    probeConnecting: 'Connecting…',
+
+    footNote:
+      'Settings apply immediately and save themselves. Credentials are stored separately and never appear in an exported settings file.',
+    storageNative: (path) => `Settings file: ${path}`,
+    storageFallback: 'Browser mode: settings live only in this browser’s storage',
+  },
+
+  update: {
+    section: 'Application updates',
+    autoCheck: 'Check for updates at startup',
+    autoCheckHint: 'You can still check manually when this is off',
+    channel: 'Channel',
+    channelStable: 'Stable',
+    channelNone: 'No updates',
+    lastChecked: (when) => `Last checked: ${when}`,
+    check: 'Check for updates',
+    checking: 'Checking…',
+    upToDate: 'You’re up to date',
+    found: (version) => `Version ${version} is available`,
+    download: 'Download update',
+    downloading: 'Downloading…',
+    verifying: 'Verifying…',
+    install: 'Install and restart',
+    installing: 'Installing — please keep this window open…',
+    failed: 'Update failed',
+    progress: (percent: number) => `Downloading ${percent}%`,
+    unavailable: 'Auto-update is unavailable here (development mode)',
+    currentVersion: (v) => `Current version ${v}`,
+    releaseNotes: 'Release notes',
+    source: (where: string) => 'Source: ' + where,
+  },
+
+  about: {
+    section: 'About Ai Cad',
+    tagline: 'AI drafting and editing for professional drawings',
+    version: 'Version',
+    platform: 'Runtime',
+    desktop: 'Desktop host (WebView2)',
+    browser: 'Browser (dev mode)',
+    note: 'Dimensions are rendered as a vector overlay from the values you enter — never guessed by the model.',
+  },
+};

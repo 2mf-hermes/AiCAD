@@ -1,0 +1,291 @@
+import type { Dict } from './zh-Hant';
+
+/* 한국어 —— KS 제도 용어를 따름(제1각법, 표제란, 기하공차 등).
+   버튼은 명사형, 설명문은 '-합니다' 체로 통일. */
+
+export const ko: Dict = {
+  app: {
+    untitled: '제목 없음',
+    docTitle: (n, w, h) => `도면 ${n} · ${w}×${h}`,
+    exportPng: 'PNG 내보내기',
+    preferences: '환경설정',
+  },
+
+  common: {
+    save: '저장', edit: '편집',
+    cancel: '취소',
+    remove: '삭제',
+    close: '닫기',
+    done: '완료',
+    add: '추가',
+    name: '이름',
+    never: '없음',
+  },
+
+  left: {
+    title: '도면 사양',
+    generate: '도면 생성',
+    generating: '생성 중…',
+    noEngine: '활성화된 이미지 엔진이 없습니다. 환경설정에서 먼저 설정하세요.',
+  },
+
+  stage: {
+    maskMode: '영역 선택',
+    maskModeHint: '영역 선택(부분 재작업)',
+    grid: '격자',
+  },
+
+  intent: {
+    kindSection: '도면 종류',
+    kindLabel: '분류',
+    kindHint: '투상 배치와 치수 기입 관례가 결정됩니다',
+    subject: '대상 설명',
+    subjectHint: '구조와 특징, 수량을 구체적으로 적어 주세요',
+    subjectPlaceholder:
+      '예: 플랜지형 베어링 하우징, M8 카운터보어 4개 대칭 배치, 중앙 ⌀40 축 구멍에 오일 시일 홈, 밑면 양쪽에 보강 리브',
+
+    textLanguage: '도면 문자 언어',
+    textLanguageHint: '표제란, 레이블, 주석 및 지시선 문자를 제어하며 치수와 표준 기호는 유지합니다',
+
+    dimsSection: '주요 치수',
+    dimsEmpty:
+      '치수가 지정되지 않았습니다. 비워 두면 모델이 비율을 추정하고, 입력하면 그 값이 도면에 그대로 표기되도록 요구합니다.',
+    dimValuePlaceholder: '120',
+    removeRow: (name) => `${name} 삭제`,
+    thisRow: '이 행',
+    unit: '단위',
+
+    specSection: '제도 규격',
+    projection: '투상법',
+    projectionHint: '제1각법은 ISO 관례, 제3각법은 KS／ANSI에서 일반적입니다',
+    firstAngle: '제1각법',
+    thirdAngle: '제3각법',
+    lineStyle: '선 표현',
+
+    dimensions: '치수 기입',
+    dimensionsHint: '치수 보조선, 치수선과 수치',
+    tolerance: '공차',
+    toleranceHint: '주요 치수 옆에 ± 값 표기',
+    gdt: '기하공차 GD&T',
+    gdtHint: '평면도, 동축도, 직각도 기호',
+    callouts: '부품 번호 지시선',
+    titleBlock: '표제란',
+    titleBlockHint: 'ISO 7200 형식, 우측 하단 배치',
+    scaleBar: '축척 바',
+
+    extraSection: '추가 조건',
+    notes: '보충 요구사항',
+    notesPlaceholder: '예: 우측 상단에 A-A 단면도를 1:2 축척으로 추가',
+    exclude: '제외 항목',
+    excludeHint: '쉼표로 구분합니다. 조명, 그림자, 배경은 기본으로 제외됩니다',
+    excludePlaceholder: '투시 왜곡, 손글씨',
+  },
+
+  drawingLanguage: {
+    'zh-Hant': '번체 중국어', 'zh-Hans': '간체 중국어', en: '영어', ja: '일본어', ko: '한국어', none: '문자 없음',
+  },
+
+  group: {
+    mechanical: '기계 제조',
+    architectural: '건축 · 토목',
+    system: '시스템 · 배치도',
+    formal: '정식 도면',
+    sketch: '컨셉 스케치',
+  },
+
+  kind: {
+    'mechanical-part': '기계 부품',
+    assembly: '조립도',
+    'floor-plan': '건축 평면도',
+    elevation: '입면／단면',
+    electrical: '전기 배선',
+    piping: '배관 P&ID',
+    schematic: '블록 계통도',
+    'exploded-view': '분해도',
+  },
+
+  lineStyle: {
+    'technical-ink': '제도 잉크',
+    blueprint: '청사진',
+    'pencil-draft': '연필 스케치',
+    'cad-vector': 'CAD 벡터',
+  },
+
+  provider: {
+    saveBeforeClosing: 'AI Provider를 편집 중입니다. 설정을 닫기 전에 변경 사항을 저장할까요?',
+    add: 'Provider 추가', duplicate: '복제', delete: '삭제', moveUp: '우선순위 높이기', moveDown: '우선순위 낮추기',
+    type: 'Provider 유형', typeHint: '기본 프로토콜, 호환 API, 사용자 정의 게이트웨이 또는 로컬 서비스를 선택합니다',
+    priority: '우선순위', priorityHint: '숫자가 작을수록 먼저 실행되며 실패 시 순서대로 전환됩니다',
+    fallbackEnabled: '대체 연결에 참여', fallbackEnabledHint: '다른 엔진이 실패한 후 이 Provider가 우선순위에 따라 이어서 처리하도록 허용합니다',
+    textFallbackEnabled: '텍스트 모델 대체', textFallbackEnabledHint: '텍스트 모델이 프롬프트 보정을 이어서 처리하도록 허용합니다',
+    imageFallbackEnabled: '이미지 모델 대체', imageFallbackEnabledHint: '이미지 모델이 생성 및 부분 재작업을 이어서 처리하도록 허용합니다',
+    endpoint: 'Endpoint', endpointHint: '상대 경로 또는 전체 URL',
+    retryCount: '재시도 횟수', retryHint: '다음 Provider로 전환하기 전에 0~5회 재시도합니다',
+    authentication: '인증 방식', authHint: '인증 정보는 Windows DPAPI에만 저장되며 설정 파일에는 기록되지 않습니다',
+    authNone: '없음', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
+    headers: '사용자 정의 Headers', headersHint: '한 줄에 하나: Header: value',
+    requestFormat: 'Request Format', requestFormatHint: '{{prompt}}, {{model}}, {{mode}}를 지원하는 JSON 템플릿',
+    textPath: '텍스트 응답 경로', imagePath: '이미지 응답 경로', dotPath: 'JSON dot path',
+    loadModels: '모델 불러오기', models: '모델', modelsHint: '엔드포인트에서 반환된 모델을 선택합니다', modelsFound: (count: number) => `${count}개 모델`,
+    typeOpenAICompatible: 'OpenAI 호환', typeCustom: '사용자 정의 Relay / Gateway', typeLocal: '로컬 LLM',
+  },
+
+  right: {
+    titleInpaint: '부분 재작업',
+    titleEngine: '엔진과 기록',
+    imageEngine: '이미지 엔진',
+    disabledSuffix: '(비활성)',
+    noRefine: '프롬프트 보정 없음',
+    refineWith: (name) => `${name}(으)로 보정`,
+    refineOn: '모호한 설명을 정확한 형상 서술로 변환합니다. 치수 규격에는 영향이 없습니다.',
+    refineOff: '텍스트 엔진을 활성화하면 형상 설명을 자동으로 보정할 수 있습니다.',
+    refineEngine: '프롬프트 보정 엔진',
+    groupCloud: '클라우드 엔진',
+    groupLocal: '로컬 엔진',
+    groupOff: '사용 안 함',
+
+    masks: '선택 영역',
+    maskLabel: (i) => `영역 ${i}`,
+    maskEmptyReady: '영역 선택을 켜고 도면 위를 드래그해 수정할 구역을 지정하세요.',
+    maskEmptyNoImage: '부분 재작업을 하려면 먼저 도면을 생성해야 합니다.',
+    maskPlaceholder: '이 영역을 어떻게 바꿀까요? 예: A-A 단면선과 ⌀12 관통 구멍 치수 추가',
+    redraw: '선택 영역 재작업',
+
+    history: '기록',
+    historyEmpty: '생성과 재작업이 모두 보관되어 언제든 비교하고 되돌릴 수 있습니다.',
+
+    params: '이번 실행 정보',
+    engine: '엔진',
+    model: '모델',
+    resolvedPrompt: '실제 프롬프트',
+    resolvedPromptHint: '전체 선택해 복사할 수 있습니다(재현 및 문제 확인용)',
+  },
+
+  status: {
+    ready: (name) => `준비 완료 · ${name}`,
+    noEngine: '엔진 미설정',
+    preparing: '준비 중',
+    maskMode: '영역 선택',
+    viewMode: '보기 모드',
+    history: (n) => `기록 ${n}`,
+    elapsed: (sec, limitSec) => `대기 ${sec}초 / 상한 ${limitSec}초`,
+    timedOut: (limitSec) =>
+      `시간 초과: ${limitSec}초를 기다려도 응답이 없습니다. 환경설정에서 해당 엔진의 제한 시간을 늘리거나 엔드포인트와 모델 이름을 확인하세요.`,
+  },
+
+  project: {
+    newProject: '새 프로젝트', openProject: '프로젝트 열기', saveProject: '프로젝트 저장',
+    namePrompt: '프로젝트 이름', newConfirm: '새 프로젝트를 만드시겠습니까? 저장하지 않은 변경 사항은 사라집니다.',
+    closeTitle: '변경 사항을 저장하시겠습니까?', closeConfirm: '이 프로젝트에 저장하지 않은 변경 사항이 있습니다. 닫기 전에 저장하시겠습니까?', discardChanges: '저장 안 함',
+    openTitle: '프로젝트 열기', openHint: '최근 저장한 작업을 계속 편집합니다', empty: '저장된 프로젝트가 없습니다.',
+    meta: (when: string, boards: number) => `${when} · 버전 ${boards}개`,
+    deleteConfirm: '이 프로젝트를 삭제하시겠습니까? 되돌릴 수 없습니다.',
+    saveFailed: (reason: string) => `프로젝트 저장 실패: ${reason}`,
+    loadFailed: (reason: string) => `프로젝트 불러오기 실패: ${reason}`,
+    deleteFailed: (reason: string) => `프로젝트 삭제 실패: ${reason}`,
+  },
+
+  settings: {
+    title: '환경설정',
+    navGeneral: '일반',
+    navModels: 'AI 모델',
+    navUpdates: '업데이트',
+    navAbout: '정보',
+
+    appearance: '테마',
+    themeDark: '다크',
+    themeLight: '라이트',
+    themeSystem: '시스템',
+
+    language: '언어',
+    languageLabel: '표시 언어',
+    languageHint: '선택하면 즉시 적용되고 설정과 함께 저장됩니다',
+
+    canvas: '캔버스',
+    canvasWidth: '기본 너비',
+    canvasHeight: '기본 높이',
+    canvasHint: '픽셀 단위이며 생성 시 출력 비율의 기준이 됩니다',
+
+    engineList: 'AI 엔진',
+    local: '로컬',
+    cloud: '클라우드',
+    capImage: '생성',
+    capInpaint: '재작업',
+    capText: '텍스트',
+
+    engineSection: '엔진',
+    localNoAuth: '로컬 서비스이므로 인증 정보가 필요하지 않습니다',
+    cloudService: '클라우드 서비스',
+    enableEngine: '이 엔진 사용',
+    enableEngineHint: '사용으로 설정하면 생성 패널의 엔진 목록에 표시됩니다',
+    capImageFull: '이미지 생성',
+    capInpaintFull: '부분 재작업',
+    capTextFull: '프롬프트 보정',
+    capVisionFull: '이미지 인식',
+
+    connection: '연결',
+    displayName: '표시 이름',
+    displayNameHint: '알아보기 쉬운 이름으로 바꿀 수 있습니다(예: 사내 릴레이)',
+    baseUrl: 'Base URL',
+    baseUrlDefault: (url) => `비워 두면 기본값을 사용합니다: ${url}`,
+    baseUrlRelay: '릴레이는 전체 엔드포인트를 입력하세요. 보통 /v1 로 끝납니다',
+    apiKey: 'API 인증 정보',
+    apiKeyOsHint: 'Windows가 암호화해 보관합니다(DPAPI, 이 계정 전용). 설정 파일에는 저장되지 않습니다',
+    apiKeySessionHint: '개발 모드: 이번 세션에만 유지되며 창을 닫으면 삭제됩니다',
+    apiKeyPlaceholder: 'API 키 붙여넣기',
+    textModel: '텍스트 모델',
+    textModelHint: '프롬프트 보정에 사용합니다',
+    imageModel: '이미지 모델',
+    imageModelHint: '생성과 재작업에 사용합니다',
+    imageModelPlaceholder: '(서버의 현재 모델 사용)',
+    notSupported: '이 엔진에서는 지원되지 않습니다',
+    timeout: '제한 시간(초)',
+    timeoutLocalHint: '로컬 추론에는 300 이상을 권장합니다',
+    timeoutCloudHint: '60–120 을 권장합니다',
+
+    probe: '연결 테스트',
+    probing: '테스트 중…',
+    probeIdle: '테스트하지 않음',
+    probeConnecting: '연결 중…',
+
+    footNote:
+      '설정은 즉시 적용되고 자동 저장됩니다. 인증 정보는 따로 보관되어 내보낸 설정 파일에는 포함되지 않습니다.',
+    storageNative: (path) => `설정 파일: ${path}`,
+    storageFallback: '브라우저 모드: 설정이 이 브라우저 저장 영역에만 남습니다',
+  },
+
+  update: {
+    section: '앱 업데이트',
+    autoCheck: '시작할 때 업데이트 확인',
+    autoCheckHint: '꺼져 있어도 언제든 직접 확인할 수 있습니다',
+    channel: '업데이트 채널',
+    channelStable: '안정 버전',
+    channelNone: '업데이트 받지 않음',
+    lastChecked: (when) => `마지막 확인: ${when}`,
+    check: '업데이트 확인',
+    checking: '확인 중…',
+    upToDate: '최신 버전입니다',
+    found: (version) => `새 버전 ${version} 이(가) 있습니다`,
+    download: '업데이트 다운로드',
+    downloading: '다운로드 중…',
+    verifying: '검증 중…',
+    install: '설치 후 재시작',
+    installing: '설치 중입니다. 창을 닫지 마세요…',
+    failed: '업데이트 실패',
+    progress: (percent: number) => `다운로드 중 ${percent}%`,
+    unavailable: '이 환경에서는 자동 업데이트를 사용할 수 없습니다(개발 모드)',
+    currentVersion: (v) => `현재 버전 ${v}`,
+    releaseNotes: '변경 사항',
+    source: (where: string) => '소스: ' + where,
+  },
+
+  about: {
+    section: 'Ai Cad 정보',
+    tagline: 'AI 기반 전문 도면 생성 및 편집 도구',
+    version: '버전',
+    platform: '실행 환경',
+    desktop: '데스크톱 호스트(WebView2)',
+    browser: '브라우저(개발 모드)',
+    note: '치수는 벡터 레이어로 겹쳐 그리며, 입력한 실제 값을 사용합니다. 모델이 추측하지 않습니다.',
+  },
+};

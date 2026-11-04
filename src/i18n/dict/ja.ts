@@ -1,0 +1,291 @@
+import type { Dict } from './zh-Hant';
+
+/* 日本語 —— JIS 製図の語彙に合わせる（「第一角法」「表題欄」「幾何公差」など）。
+   ボタンは動詞の連用形／体言止め、説明文は「です・ます」体で統一。 */
+
+export const ja: Dict = {
+  app: {
+    untitled: '無題',
+    docTitle: (n, w, h) => `図面 ${n} · ${w}×${h}`,
+    exportPng: 'PNG で書き出す',
+    preferences: '環境設定',
+  },
+
+  common: {
+    save: '保存', edit: '編集',
+    cancel: 'キャンセル',
+    remove: '削除',
+    close: '閉じる',
+    done: '完了',
+    add: '追加',
+    name: '名称',
+    never: 'なし',
+  },
+
+  left: {
+    title: '図面仕様',
+    generate: '図面を生成',
+    generating: '生成中…',
+    noEngine: '画像生成エンジンが有効になっていません。環境設定で設定してください。',
+  },
+
+  stage: {
+    maskMode: '範囲選択',
+    maskModeHint: '範囲選択（部分再描画）',
+    grid: 'グリッド',
+  },
+
+  intent: {
+    kindSection: '図面の種類',
+    kindLabel: '種別',
+    kindHint: '投影配置と寸法記入の慣例が決まります',
+    subject: '対象の記述',
+    subjectHint: '構造・特徴・数量を具体的に記述してください',
+    subjectPlaceholder:
+      '例：フランジ形軸受ハウジング、M8 座付き穴 4 個を対称配置、中央 ⌀40 軸穴にオイルシール溝、底面両側にリブ',
+
+    textLanguage: '図面テキスト言語',
+    textLanguageHint: '表題欄、ラベル、注記、引出線の言語を制御します。寸法値と標準記号は変更しません',
+
+    dimsSection: '主要寸法',
+    dimsEmpty:
+      '寸法は未指定です。空欄ならモデルが比率を推定し、入力すると図面上にその数値をそのまま記入させます。',
+    dimValuePlaceholder: '120',
+    removeRow: (name) => `${name} を削除`,
+    thisRow: 'この行',
+    unit: '単位',
+
+    specSection: '製図規格',
+    projection: '投影法',
+    projectionHint: '第一角法は ISO 準拠、第三角法は JIS／ANSI で一般的です',
+    firstAngle: '第一角法',
+    thirdAngle: '第三角法',
+    lineStyle: '線の表現',
+
+    dimensions: '寸法記入',
+    dimensionsHint: '寸法補助線・寸法線・数値',
+    tolerance: '公差',
+    toleranceHint: '主要寸法に ± 値を併記',
+    gdt: '幾何公差 GD&T',
+    gdtHint: '平面度・同軸度・直角度の記号',
+    callouts: '部品番号の引出線',
+    titleBlock: '表題欄',
+    titleBlockHint: 'ISO 7200 形式、右下に配置',
+    scaleBar: 'スケールバー',
+
+    extraSection: '追加条件',
+    notes: '補足要求',
+    notesPlaceholder: '例：右上に A-A 断面図を尺度 1:2 で追加',
+    exclude: '除外項目',
+    excludeHint: 'カンマ区切り。照明・影・背景は既定で除外されます',
+    excludePlaceholder: '透視変形, 手書き文字',
+  },
+
+  drawingLanguage: {
+    'zh-Hant': '繁体字中国語', 'zh-Hans': '簡体字中国語', en: '英語', ja: '日本語', ko: '韓国語', none: '文字なし',
+  },
+
+  group: {
+    mechanical: '機械製造',
+    architectural: '建築・土木',
+    system: 'システム・配置図',
+    formal: '正式図面',
+    sketch: 'コンセプトスケッチ',
+  },
+
+  kind: {
+    'mechanical-part': '機械部品',
+    assembly: '組立図',
+    'floor-plan': '建築平面図',
+    elevation: '立面／断面',
+    electrical: '電気配線',
+    piping: '配管 P&ID',
+    schematic: 'ブロック図',
+    'exploded-view': '分解図',
+  },
+
+  lineStyle: {
+    'technical-ink': '製図インク',
+    blueprint: '青焼き',
+    'pencil-draft': '鉛筆下書き',
+    'cad-vector': 'CAD ベクター',
+  },
+
+  provider: {
+    saveBeforeClosing: 'AI Provider を編集中です。設定を閉じる前に変更を保存しますか？',
+    add: 'Provider を追加', duplicate: '複製', delete: '削除', moveUp: '優先度を上げる', moveDown: '優先度を下げる',
+    type: 'Provider タイプ', typeHint: '組み込みプロトコル、互換 API、カスタムゲートウェイ、ローカルサービスを選択',
+    priority: '優先度', priorityHint: '小さい番号から実行し、失敗時は順番に切り替えます',
+    fallbackEnabled: 'フォールバックに参加', fallbackEnabledHint: '他のエンジンが失敗した後、この Provider が優先度順に引き継げるようにします',
+    textFallbackEnabled: 'テキストモデルのフォールバック', textFallbackEnabledHint: 'テキストモデルがプロンプト補正を引き継げるようにします',
+    imageFallbackEnabled: '画像モデルのフォールバック', imageFallbackEnabledHint: '画像モデルが生成と再描画を引き継げるようにします',
+    endpoint: 'Endpoint', endpointHint: '相対パスまたは完全な URL',
+    retryCount: '再試行回数', retryHint: '次の Provider に切り替える前に 0〜5 回再試行します',
+    authentication: '認証方式', authHint: '認証情報は Windows DPAPI のみに保存され、設定ファイルには書き込みません',
+    authNone: 'なし', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
+    headers: 'カスタム Headers', headersHint: '1 行に 1 件：Header: value',
+    requestFormat: 'Request Format', requestFormatHint: '{{prompt}}、{{model}}、{{mode}} を使用できる JSON テンプレート',
+    textPath: 'テキスト応答パス', imagePath: '画像応答パス', dotPath: 'JSON dot path',
+    loadModels: 'モデルを読み込む', models: 'モデル', modelsHint: 'エンドポイントが返したモデルを選択', modelsFound: (count: number) => `${count} 個のモデル`,
+    typeOpenAICompatible: 'OpenAI 互換', typeCustom: 'カスタム Relay / Gateway', typeLocal: 'ローカル LLM',
+  },
+
+  right: {
+    titleInpaint: '部分再描画',
+    titleEngine: 'エンジンと履歴',
+    imageEngine: '画像エンジン',
+    disabledSuffix: '（無効）',
+    noRefine: 'プロンプトを補正しない',
+    refineWith: (name) => `${name} で補正`,
+    refineOn: '曖昧な記述を正確な幾何記述に変換します。寸法規格には影響しません。',
+    refineOff: 'テキストエンジンを有効にすると幾何記述を自動補正できます。',
+    refineEngine: 'プロンプト補正エンジン',
+    groupCloud: 'クラウドエンジン',
+    groupLocal: 'ローカルエンジン',
+    groupOff: '使用しない',
+
+    masks: '選択範囲',
+    maskLabel: (i) => `範囲 ${i}`,
+    maskEmptyReady: '範囲選択を有効にし、図面上をドラッグして修正する領域を囲みます。',
+    maskEmptyNoImage: '部分再描画には、まず図面を生成する必要があります。',
+    maskPlaceholder: 'この範囲をどう変更しますか？例：A-A 断面線と ⌀12 貫通穴の寸法を追加',
+    redraw: '選択範囲を再描画',
+
+    history: '履歴',
+    historyEmpty: '生成と再描画はすべて保存され、いつでも見比べて戻せます。',
+
+    params: '実行内容',
+    engine: 'エンジン',
+    model: 'モデル',
+    resolvedPrompt: '実際のプロンプト',
+    resolvedPromptHint: '全選択してコピーできます（再現・原因調査用）',
+  },
+
+  status: {
+    ready: (name) => `準備完了 · ${name}`,
+    noEngine: 'エンジン未設定',
+    preparing: '準備中',
+    maskMode: '範囲選択',
+    viewMode: '表示モード',
+    history: (n) => `履歴 ${n}`,
+    elapsed: (sec, limitSec) => `待機 ${sec} 秒 / 上限 ${limitSec} 秒`,
+    timedOut: (limitSec) =>
+      `タイムアウト：${limitSec} 秒待っても応答がありません。環境設定でエンジンのタイムアウト秒数を延ばすか、エンドポイントとモデル名をご確認ください。`,
+  },
+
+  project: {
+    newProject: '新規プロジェクト', openProject: 'プロジェクトを開く', saveProject: 'プロジェクトを保存',
+    namePrompt: 'プロジェクト名', newConfirm: '新規プロジェクトを作成しますか？未保存の変更は失われます。',
+    closeTitle: '変更を保存しますか？', closeConfirm: 'このプロジェクトには未保存の変更があります。閉じる前に保存しますか？', discardChanges: '保存しない',
+    openTitle: 'プロジェクトを開く', openHint: '最近保存した作品の編集を続けます', empty: '保存済みのプロジェクトはありません。',
+    meta: (when: string, boards: number) => `${when} · ${boards} バージョン`,
+    deleteConfirm: 'このプロジェクトを削除しますか？元に戻せません。',
+    saveFailed: (reason: string) => `プロジェクトの保存に失敗しました：${reason}`,
+    loadFailed: (reason: string) => `プロジェクトの読み込みに失敗しました：${reason}`,
+    deleteFailed: (reason: string) => `プロジェクトの削除に失敗しました：${reason}`,
+  },
+
+  settings: {
+    title: '環境設定',
+    navGeneral: '一般',
+    navModels: 'AI モデル',
+    navUpdates: '更新',
+    navAbout: '情報',
+
+    appearance: '外観',
+    themeDark: 'ダーク',
+    themeLight: 'ライト',
+    themeSystem: 'システム',
+
+    language: '言語',
+    languageLabel: '表示言語',
+    languageHint: '選択すると即座に適用され、設定と一緒に保存されます',
+
+    canvas: 'キャンバス',
+    canvasWidth: '既定の幅',
+    canvasHeight: '既定の高さ',
+    canvasHint: 'ピクセル。生成時の出力比率の基準になります',
+
+    engineList: 'AI エンジン',
+    local: 'ローカル',
+    cloud: 'クラウド',
+    capImage: '生成',
+    capInpaint: '再描画',
+    capText: 'テキスト',
+
+    engineSection: 'エンジン',
+    localNoAuth: 'ローカルサービスのため認証情報は不要です',
+    cloudService: 'クラウドサービス',
+    enableEngine: 'このエンジンを有効にする',
+    enableEngineHint: '有効にすると生成パネルのエンジン一覧に表示されます',
+    capImageFull: '画像生成',
+    capInpaintFull: '部分再描画',
+    capTextFull: 'プロンプト補正',
+    capVisionFull: '画像読取',
+
+    connection: '接続',
+    displayName: '表示名',
+    displayNameHint: '識別しやすい名前に変更できます（例：社内リレー）',
+    baseUrl: 'Base URL',
+    baseUrlDefault: (url) => `空欄の場合は既定値を使用します：${url}`,
+    baseUrlRelay: 'リレーの場合は完全なエンドポイントを入力します（通常は /v1 で終わります）',
+    apiKey: 'API 認証情報',
+    apiKeyOsHint: 'Windows が暗号化して保管します（DPAPI・このアカウント専用）。設定ファイルには書き込みません',
+    apiKeySessionHint: '開発モード：このセッションのみ保持し、ウィンドウを閉じると消去されます',
+    apiKeyPlaceholder: 'API キーを貼り付け',
+    textModel: 'テキストモデル',
+    textModelHint: 'プロンプト補正に使用します',
+    imageModel: '画像モデル',
+    imageModelHint: '生成と再描画に使用します',
+    imageModelPlaceholder: '（サーバー側の現在のモデルを使用）',
+    notSupported: 'このエンジンでは非対応です',
+    timeout: 'タイムアウト（秒）',
+    timeoutLocalHint: 'ローカル推論では 300 以上を推奨します',
+    timeoutCloudHint: '60〜120 を推奨します',
+
+    probe: '接続テスト',
+    probing: 'テスト中…',
+    probeIdle: '未テスト',
+    probeConnecting: '接続中…',
+
+    footNote:
+      '設定は即時に反映され、自動保存されます。認証情報は別に保管され、書き出した設定ファイルには含まれません。',
+    storageNative: (path) => `設定ファイル：${path}`,
+    storageFallback: 'ブラウザモード：設定はこのブラウザの保存領域にのみ残ります',
+  },
+
+  update: {
+    section: 'アプリの更新',
+    autoCheck: '起動時に更新を確認する',
+    autoCheckHint: 'オフでも手動で確認できます',
+    channel: '更新チャネル',
+    channelStable: '安定版',
+    channelNone: '更新を受け取らない',
+    lastChecked: (when) => `前回の確認：${when}`,
+    check: '更新を確認',
+    checking: '確認中…',
+    upToDate: '最新の状態です',
+    found: (version) => `新しいバージョン ${version} があります`,
+    download: '更新をダウンロード',
+    downloading: 'ダウンロード中…',
+    verifying: '検証中…',
+    install: 'インストールして再起動',
+    installing: 'インストール中です。ウィンドウを閉じないでください…',
+    failed: '更新に失敗しました',
+    progress: (percent: number) => `ダウンロード中 ${percent}%`,
+    unavailable: 'この環境では自動更新できません（開発モード）',
+    currentVersion: (v) => `現在のバージョン ${v}`,
+    releaseNotes: '変更点',
+    source: (where: string) => '取得元：' + where,
+  },
+
+  about: {
+    section: 'Ai Cad について',
+    tagline: 'AI による専門図面の生成・編集ツール',
+    version: 'バージョン',
+    platform: '実行環境',
+    desktop: 'デスクトップホスト（WebView2）',
+    browser: 'ブラウザ（開発モード）',
+    note: '寸法はベクターレイヤーとして重ねて描画され、入力された実際の数値を使います。モデルの推測ではありません。',
+  },
+};

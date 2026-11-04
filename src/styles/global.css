@@ -1,0 +1,94 @@
+@import './tokens.css';
+
+/* ============================================================================
+   Reset + 全域基底
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* 桌面應用：整頁不滾動，只有內部面板滾動 */
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* 桌面應用不該能選取 UI 文字；可選取的區域自行加 .selectable */
+  user-select: none;
+  cursor: default;
+}
+
+.selectable {
+  user-select: text;
+  cursor: text;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: default;
+}
+
+/* 只給鍵盤使用者的焦點環——滑鼠點擊不會出現，避免視覺噪音 */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* 細捲軸：桌面工具的細節分水嶺 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--r-pill);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-tertiary);
+  background-clip: content-box;
+}
+
+/* 數字一律等寬、等寬數字位——尺寸標註跳動是廉價感的來源 */
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
