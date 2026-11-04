@@ -262,7 +262,13 @@ func TestCheckForUpdateRejectsManifestEscapingAppDir(t *testing.T) {
 	})
 	t.Cleanup(func() { _ = os.Remove(manifest) })
 
-	if _, err := checkForUpdate("stable"); err == nil {
+	// Test the unsafe source directly: the overall check may legitimately
+	// fall back to a healthy public GitHub release after rejecting this file.
+	src, err := parseUpdateSource(manifest, dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fetchUpdateInfo(src, "stable"); err == nil {
 		t.Fatal("清單指向程式目錄外時應失敗")
 	}
 }
