@@ -30,10 +30,12 @@ import {
   canAutoUpdate,
   pollUntilDone,
   updateBackend,
+  type UpdateInfo,
   type UpdateStage,
 } from '../core/update';
 import { IconCheck, IconClose } from './icons';
 import { Button, Dot, Field, Section, Segmented, Select, Toggle, type SelectOption } from './primitives';
+import { UpdatePromptDialog } from './UpdatePromptDialog';
 import './settings.css';
 import './utility-dialog.css';
 
@@ -838,6 +840,9 @@ function UpdatesPane({
 }) {
   const t = useT();
   const [stage, setStage] = useState<UpdateStage>({ kind: 'idle' });
+  /* 提示框要顯示的版本／notes。與 stage 分開持有：stage 還要繼續驅動
+     「下載／安裝」流程，而提示框只是「這次檢查到什麼」的一次性呈現。 */
+  const [prompt, setPrompt] = useState<{ info: UpdateInfo } | null>(null);
   const aliveRef = useRef(true);
 
   useEffect(() => {
@@ -859,8 +864,12 @@ function UpdatesPane({
       });
       if (!aliveRef.current) return;
       setStage(info ? { kind: 'available', info } : { kind: 'up-to-date' });
+      /* 檢查到更新 → 提示框，而不是把 release notes 原文傾印在設定頁裡。
+         詳細內容留在 GitHub Release 頁，這裡只給「新增／修改／刪除」。 */
+      setPrompt(info ? { info } : null);
     } catch (e) {
       if (!aliveRef.current) return;
+      setPrompt(null);
       setStage({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
     }
   }, [onChange, settings]);
@@ -969,12 +978,21 @@ function UpdatesPane({
                 {t.update.source(stage.info.source)}
               </p>
             )}
-            <p className="sheetmodal__note" style={{ whiteSpace: 'pre-wrap' }}>
-              {stage.info.notes}
-            </p>
           </>
         )}
       </Section>
+
+      {/* 更新提示框：只列「新增／修改／刪除」的基本項目。
+          notes 原文不再出現在設定頁 —— 那是詳細更新內容，違背需求；
+          要看全文請到 GitHub Release 頁。 */}
+      {prompt && (
+        <UpdatePromptDialog
+          version={prompt.info.version}
+          notes={prompt.info.notes}
+          onLater={() => setPrompt(null)}
+          onRetry={() => void check()}
+        />
+      )}
     </>
   );
 }

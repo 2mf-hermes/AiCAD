@@ -277,6 +277,13 @@ export const en: Dict = {
     unavailable: 'Auto-update is unavailable here (development mode)',
     currentVersion: (v) => `Current version ${v}`,
     releaseNotes: 'Release notes',
+    promptIntro: 'Summary of what’s new:',
+    itemAdded: 'Added',
+    itemChanged: 'Changed',
+    itemRemoved: 'Removed',
+    promptEmpty: 'Bug fixes and stability improvements.',
+    later: 'Later',
+    retry: 'Retry',
     source: (where: string) => 'Source: ' + where,
   },
 

@@ -31,6 +31,8 @@ import {
 import { IntentPanel } from './ui/IntentPanel';
 import { Button, Dot, Field, Section, Select } from './ui/primitives';
 import { SettingsSheet } from './ui/SettingsSheet';
+import { UpdatePromptDialog } from './ui/UpdatePromptDialog';
+import { canAutoUpdate, updateBackend, type UpdateInfo } from './core/update';
 import { ProjectSheet } from './ui/ProjectSheet';
 import { CadToolbar } from './ui/CadToolbar';
 import './ui/shell.css';
@@ -57,6 +59,9 @@ type RunState =
 export default function App() {
   const [settings, setSettings] = useState<Settings>(createDefaultSettings);
   const [hydrated, setHydrated] = useState(false);
+  /* 開機自動檢查的結果。與設定頁各自獨立：這邊只負責「啟動時發現有新版」
+     就提示一次，不做下載（下載仍在設定 → 更新頁，流程與狀態機都完整）。 */
+  const [autoUpdateInfo, setAutoUpdateInfo] = useState<UpdateInfo | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -75,6 +80,32 @@ export default function App() {
     if (!hydrated) return;
     void saveSettings(settings);
   }, [hydrated, settings]);
+
+  /* 開機自動檢查更新（設定 → 更新 → 「自動檢查更新」，預設開啟）。
+     這個開關以前沒有任何地方消費，是死設定 —— 現在接上了。
+     三個刻意的設計：
+     1) 等 hydrated：否則讀到的是預設值，會蓋掉使用者關掉自動檢查的選擇。
+     2) 失敗靜默：開機第一秒不該被網路錯誤打斷，手動檢查仍在設定頁。
+     3) 只提示、不在這裡下載：下載流程（進度、驗證、安裝）在設定頁，
+       兩邊同時下載會讓 Go 端的單一視窗保護複雜化，沒有好處。 */
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!settings.updates.autoCheck) return;
+    if (settings.updates.channel === 'none') return;
+    if (!canAutoUpdate()) return; // 開發模式（瀏覽器沙箱）沒有 updater
+    let alive = true;
+    void updateBackend()
+      .check(settings.updates.channel)
+      .then((info) => {
+        if (alive && info) setAutoUpdateInfo(info);
+      })
+      .catch(() => {
+        /* 靜默：開機檢查失敗不顯示錯誤，使用者仍可手動檢查 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [hydrated, settings.updates.autoCheck, settings.updates.channel]);
 
   // 主題套用：system 模式跟隨作業系統並即時響應
   useEffect(() => {
@@ -95,6 +126,14 @@ export default function App() {
   return (
     <I18nProvider locale={settings.language}>
       <Workspace settings={settings} onSettings={setSettings} />
+      {autoUpdateInfo && (
+        <UpdatePromptDialog
+          version={autoUpdateInfo.version}
+          notes={autoUpdateInfo.notes}
+          onLater={() => setAutoUpdateInfo(null)}
+          onRetry={() => setAutoUpdateInfo(null)}
+        />
+      )}
     </I18nProvider>
   );
 }

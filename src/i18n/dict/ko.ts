@@ -276,6 +276,13 @@ export const ko: Dict = {
     unavailable: '이 환경에서는 자동 업데이트를 사용할 수 없습니다(개발 모드)',
     currentVersion: (v) => `현재 버전 ${v}`,
     releaseNotes: '변경 사항',
+    promptIntro: '업데이트 요약:',
+    itemAdded: '추가',
+    itemChanged: '수정',
+    itemRemoved: '삭제',
+    promptEmpty: '버그 수정 및 안정성 개선.',
+    later: '나중에',
+    retry: '재시도',
     source: (where: string) => '소스: ' + where,
   },
 

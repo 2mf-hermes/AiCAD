@@ -276,6 +276,13 @@ export const ja: Dict = {
     unavailable: 'この環境では自動更新できません（開発モード）',
     currentVersion: (v) => `現在のバージョン ${v}`,
     releaseNotes: '変更点',
+    promptIntro: '更新内容の要約：',
+    itemAdded: '追加',
+    itemChanged: '変更',
+    itemRemoved: '削除',
+    promptEmpty: 'バグ修正と安定性の改善。',
+    later: '後で',
+    retry: '再試行',
     source: (where: string) => '取得元：' + where,
   },
 

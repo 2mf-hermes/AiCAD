@@ -1,0 +1,62 @@
+/* ============================================================================
+   更新提示框 — 三欄摘要樣式
+   ----------------------------------------------------------------------------
+   只准引用 src/styles/tokens.css 裡「真的存在」的 token。cad-toolbar.css 的教訓：
+   寫一個不存在又給淺色 fallback 的變數，深色模式就永遠是白的。
+   ========================================================================== */
+
+.update-prompt__groups {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.update-prompt__group {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: start;
+  gap: var(--sp-2);
+}
+
+/* 「新增／修改／刪除」三個字寬度固定，右側清單才能對齊成一塊 */
+.update-prompt__label {
+  padding: 1px 0;
+  border-radius: var(--r-pill);
+  background: var(--bg-hover);
+  color: var(--fg-secondary);
+  font-size: var(--fs-micro);
+  line-height: 18px;
+  text-align: center;
+  letter-spacing: var(--ls-micro);
+}
+
+.update-prompt__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+
+.update-prompt__list li {
+  color: var(--fg-primary);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-normal);
+  /* 摘要就是摘要：不換行、不展開，超出就是一顆刪節號 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 折疊起來的項數（「+3」）：比一整列文字更輕，不搶焦點 */
+.update-prompt__more {
+  color: var(--fg-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* notes 解析不出條列時的通用說明 */
+.update-prompt__empty {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+}

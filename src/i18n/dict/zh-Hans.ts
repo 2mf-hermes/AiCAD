@@ -274,6 +274,13 @@ export const zhHans: Dict = {
     unavailable: '当前环境无法自动更新（开发模式）',
     currentVersion: (v) => `当前版本 ${v}`,
     releaseNotes: '版本说明',
+    promptIntro: '更新内容摘要：',
+    itemAdded: '新增',
+    itemChanged: '修改',
+    itemRemoved: '删除',
+    promptEmpty: '错误修复与稳定性改进。',
+    later: '稍后再说',
+    retry: '重试',
     source: (where: string) => '来源：' + where,
   },
 

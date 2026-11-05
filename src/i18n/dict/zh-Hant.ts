@@ -281,6 +281,13 @@ export const zhHant = {
     unavailable: '此環境無法自動更新（開發模式）',
     currentVersion: (v: string) => `目前版本 ${v}`,
     releaseNotes: '版本說明',
+    promptIntro: '更新內容摘要：',
+    itemAdded: '新增',
+    itemChanged: '修改',
+    itemRemoved: '刪除',
+    promptEmpty: '錯誤修正與穩定性改善。',
+    later: '稍後再說',
+    retry: '重試',
     source: (where: string) => '來源：' + where,
   },
 
