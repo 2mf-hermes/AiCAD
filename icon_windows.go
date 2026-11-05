@@ -8,9 +8,14 @@
 
    根因（讀 go-webview2 原始碼確認）：CreateWithOptions 在 IconId == 0 時，
    走的是 LoadImageW(hinstance, 32512, ...)，32512 就是 IDI_APPLICATION，
-   也就是系統內建圖示，而不是我們透過 rsrc_windows_amd64.syso 嵌進 EXE 的那組。
-   換句話說：資源一直都在（verify-icon.ps1 通過），只是從來沒有人把它掛到
-   視窗上 —— 這也是先前「驗證了資源就宣稱完成」的盲點。
+   （hinstance 為 NULL 時）＝系統內建圖示。舊版 syso 沒有 32512 群組，
+   視窗因此掛不到我們的圖示 —— 資源一直在（verify-icon.ps1 通過），
+   只是從來沒有人把它掛到視窗上；「驗證了資源就宣稱完成」曾是盲點。
+
+   現況：rsrc_windows_amd64.syso 改由 goversioninfo 從 winres/versioninfo.json
+   重新產生（build.ps1 內建此步驟）。該工具依設計把「視窗標題列」用的
+   圖示群組固定嵌在 IDI_APPLICATION = 32512（-application-icon 參數的
+   存在目的），LoadImageW(hinstance, 32512) 拿到的就是我們的圖示。
 
    兩道保險：
      1. 建立視窗時傳 IconId = appIconResourceID，讓視窗類別（WNDCLASSEX 的
@@ -31,8 +36,11 @@ import (
 	"unsafe"
 )
 
-// rsrc_windows_amd64.syso 內 RT_GROUP_ICON 的整數 ID（probe-icon-id.ps1 實測為 #1）。
-const appIconResourceID = 1
+// RT_GROUP_ICON 的整數 ID。goversioninfo（build.ps1 會用 winres/versioninfo.json
+// 重新產生 syso）把「視窗標題列」用的圖示群組固定嵌在 IDI_APPLICATION = 32512，
+// 這是該工具保證、穩定的 ID；舊版 syso 則把唯一群組放在 #1。
+// 視窗類別（CreateWithOptions 的 IconId）與 WM_SETICON 兩條路徑都讀這個 ID。
+const appIconResourceID = 32512
 
 var (
 	kernel32               = syscall.NewLazyDLL("kernel32.dll")

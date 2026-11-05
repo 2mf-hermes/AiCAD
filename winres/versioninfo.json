@@ -1,0 +1,30 @@
+{
+  "FixedInfo": {
+    "FileVersion": { "Major": 0, "Minor": 2, "Patch": 0, "Build": 0 },
+    "ProductVersion": { "Major": 0, "Minor": 2, "Patch": 0, "Build": 0 },
+    "FileFlagsMask": "3f",
+    "FileFlags": "00",
+    "FileOS": "040004",
+    "FileType": "01",
+    "FileSubType": "00"
+  },
+  "StringFileInfo": {
+    "Comments": "",
+    "CompanyName": "",
+    "FileDescription": "Ai Cad - AI 專業圖面生成與編譯工具",
+    "FileVersion": "0.2.0",
+    "InternalName": "",
+    "LegalCopyright": "Ai Cad",
+    "LegalTrademarks": "",
+    "OriginalFilename": "AiCad.exe",
+    "PrivateBuild": "",
+    "ProductName": "Ai Cad",
+    "ProductVersion": "0.2.0",
+    "SpecialBuild": ""
+  },
+  "VarFileInfo": {
+    "Translation": { "LangID": "0409", "CharsetID": "04B0" }
+  },
+  "IconPath": "winres/icon.ico",
+  "ManifestPath": "winres/app.manifest"
+}

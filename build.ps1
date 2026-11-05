@@ -10,7 +10,7 @@
 
 param(
     [switch]$SkipWeb,
-    [string]$Version = "0.1.0"
+    [string]$Version = "0.2.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +34,27 @@ if (-not (Test-Path "dist\index.html")) {
 Step "同步前端資產到 web\ (go:embed 來源)"
 if (Test-Path "web") { Remove-Item "web" -Recurse -Force }
 Copy-Item "dist" "web" -Recurse
+
+# --- 2.5 重新產生 Windows PE 資源（版本資訊 / 圖示 / manifest）--------------
+# rsrc_windows_amd64.syso 決定 EXE 的 PE 版本號、檔案圖示與 DPI manifest，
+# 來源是 winres\versioninfo.json + winres\app.manifest + winres\icon.ico。
+# 每次建置都用 goversioninfo 重新產生，確保 -Version 一定寫進 EXE；
+# 找不到 goversioninfo 時，退回倉庫已提交的 syso（PE 版本可能過期，僅警告）。
+Step "重新產生 Windows 資源 (goversioninfo)"
+$gviPath = $null
+$gviCmd = Get-Command goversioninfo -ErrorAction SilentlyContinue
+if ($gviCmd) {
+    $gviPath = $gviCmd.Source
+} elseif (Test-Path "$env:USERPROFILE\go\bin\goversioninfo.exe") {
+    $gviPath = "$env:USERPROFILE\go\bin\goversioninfo.exe"
+}
+if ($gviPath) {
+    & $gviPath -o rsrc_windows_amd64.syso -file-version $Version -product-version $Version -propagate-ver-strings winres\versioninfo.json
+    if ($LASTEXITCODE -ne 0) { throw "goversioninfo 重新產生 syso 失敗" }
+} else {
+    Write-Warning "找不到 goversioninfo：沿用已提交的 rsrc_windows_amd64.syso，PE 版本資訊可能與 $Version 不一致。"
+    Write-Warning "安裝：go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest"
+}
 
 # --- 3. 編譯單一 EXE ---------------------------------------------------------
 Step "編譯 Windows 單一執行檔"
