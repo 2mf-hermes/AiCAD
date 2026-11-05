@@ -24,7 +24,7 @@
    - 文字模型若沒有視圖能力、或使用者沒接文字模型，就跳過草稿直接走舊路徑。
    ========================================================================== */
 
-import type { DrawingIntent, LineStyle } from '../types';
+import type { DrawingIntent, DrawingTextLabel, LineStyle } from '../types';
 
 /** 草稿的長邊像素。太大會拖慢生圖，太小則線稿糊成一片。 */
 const DRAFT_SIZE = 1024;
@@ -39,6 +39,8 @@ export interface DraftSvg {
   svg: string;
   /** 從藍圖抽出、給生圖模型看的可讀幾何摘要 */
   summary: string;
+  /** 草稿中的文字標示清單（生圖後由應用程式補回；舊呼叫端可省略） */
+  labels?: DrawingTextLabel[];
 }
 
 /* ---------------------------------------------------------------------------
@@ -63,13 +65,22 @@ export function buildDraftSystemPrompt(): string {
     '   or below it, right-side view beside it, plus one isometric detail inset in a corner.',
     '5. Include centre lines through holes, extension lines with arrowheads for dimensions, and a',
     '   title block rectangle in the lower right corner.',
-    '6. Do NOT include any <text>, <tspan>, fonts, gradients, filters, images, clip paths, or',
-    '   foreign objects. Text is rendered later by the application in exact vector form.',
+    '6. Do NOT include <tspan>, fonts, gradients, filters, images, clip paths, or foreign objects.',
+    '   <text> is allowed ONLY when the request asks for labels, and only as',
+    '   <text x=".." y=".." text-anchor="start|middle|end" font-size="10-24">short label</text>.',
+    '   The application strips these from the image and re-renders them in exact vector form at',
+    '   the same coordinates, so place each label in clear space next to what it names, never on',
+    '   top of linework, and never inside the title block (the application fills the title block).',
     '7. Do NOT use nested <g transform> chains. Keep every coordinate absolute.',
     '8. Stay inside the viewBox with a 40-unit margin. Never invent numbers for dimension values —',
-    '   left out the numeric labels entirely.',
+    '   only use values explicitly supplied in the request; otherwise leave numbers out entirely.',
   ].join('\n');
 }
+
+const LABEL_LANGUAGE: Record<DrawingIntent['textLanguage'], string> = {
+  'zh-Hant': 'Traditional Chinese', 'zh-Hans': 'Simplified Chinese', en: 'English',
+  ja: 'Japanese', ko: 'Korean', none: 'none',
+};
 
 /** 把使用者的圖面意圖壓成給草稿模型的一句話。 */
 export function buildDraftRequest(intent: DrawingIntent): string {
@@ -81,6 +92,14 @@ export function buildDraftRequest(intent: DrawingIntent): string {
   ];
   if (intent.categoryContent.trim()) lines.push(`Additional content: ${intent.categoryContent.trim()}`);
   if (intent.notes.trim()) lines.push(`Requirements: ${intent.notes.trim()}`);
+  const wantsLabels = intent.text?.renderMode !== 'image-model' && intent.textLanguage !== 'none';
+  if (wantsLabels) {
+    lines.push(`Labels: add up to 30 short <text> labels in ${LABEL_LANGUAGE[intent.textLanguage]} (view names, part callouts, short notes).`);
+    const dims = Object.entries(intent.measurements ?? {}).filter(([k, v]) => k.trim() && v.trim());
+    if (dims.length) lines.push(`Supplied dimension values (place each value beside its dimension line as a <text> label): ${dims.map(([k, v]) => `${k} = ${v}`).join('; ')}`);
+  } else {
+    lines.push('Labels: none. Do NOT include any <text> element.');
+  }
   return `${lines.join('\n')}\n\nDraft the sheet geometry as SVG.`;
 }
 
@@ -275,6 +294,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
    --------------------------------------------------------------------------- */
 
 export function mergeDraftIntoPrompt(basePrompt: string, draft: DraftSvg, attached: boolean): string {
+  const labelCount = draft.labels?.length ?? 0;
   return [
     basePrompt,
     '',
@@ -287,7 +307,39 @@ export function mergeDraftIntoPrompt(basePrompt: string, draft: DraftSvg, attach
       : 'Keep every view where the draft summary puts it.',
     'Do not invent extra views, do not rotate the sheet, and do not add decorations.',
     'Any further attached images are user-supplied references for appearance only, not new layouts.',
-  ].join('\n');
+    labelCount > 0
+      ? `The application will overlay ${labelCount} exact text labels afterwards at fixed positions. Draw NO text at all: no letters, digits, characters, words, numbers, labels or glyph-like marks anywhere on the sheet, and keep the label areas of the draft clean and empty.`
+      : '',
+  ].filter((line, index) => index < 2 || line !== '').join('\n');
+}
+
+function decodeEntities(value: string): string {
+  return value.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, String.fromCharCode(34)).replace(/&#39;|&apos;/g, String.fromCharCode(39)).replace(/&amp;/g, '&');
+}
+
+/** 從原始草稿擷取 <text> 標示（正規化座標 0..1），供生圖後由應用程式按位置補回。不信任模型輸出：非有限座標、過長或空白文字一律丟棄。 */
+export function extractTextLabels(raw: string, limit = 40): DrawingTextLabel[] {
+  const svg = extractSvg(raw);
+  if (!svg) return [];
+  const labels: DrawingTextLabel[] = [];
+  for (const match of svg.matchAll(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi)) {
+    const attrs = match[1] ?? '';
+    const read = (name: string): string | undefined => {
+      const found = attrs.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i'));
+      return found ? (found[1] ?? found[2] ?? '') : undefined;
+    };
+    const text = decodeEntities(match[2].replace(/<[^>]*>/g, '')).replace(/[\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const x = Number.parseFloat(read('x') ?? '');
+    const y = Number.parseFloat(read('y') ?? '');
+    if (!text || text.length > 60 || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const anchorRaw = read('text-anchor');
+    const anchor = anchorRaw === 'middle' || anchorRaw === 'end' ? anchorRaw : 'start';
+    const size = Math.min(32, Math.max(8, Number.parseFloat(read('font-size') ?? '') || 14));
+    const rotate = Math.min(90, Math.max(-90, Number.parseFloat((read('transform') ?? '').match(/rotate\(\s*(-?[\d.]+)/)?.[1] ?? '') || 0));
+    labels.push({ text, x: Math.min(1, Math.max(0, x / SHEET_W)), y: Math.min(1, Math.max(0, y / SHEET_H)), anchor, size: size / SHEET_H, rotate });
+    if (labels.length >= limit) break;
+  }
+  return labels;
 }
 
 function truncate(text: string, limit: number): string {

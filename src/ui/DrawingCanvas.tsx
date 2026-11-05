@@ -8,6 +8,7 @@ import {
   type CadEntity, type CadPoint, type CadSnapResult, type CadTool, type CadWorkspaceState,
 } from '../core/cad';
 import { createSafeId } from '../core/projectSafety';
+import { LABEL_FONT_STACK, placeLabels, shouldOverlayLabels } from '../core/textOverlay';
 
 interface Props {
   artboard: Artboard | null;
@@ -293,7 +294,15 @@ export function DrawingCanvas({
       </div>
       <div ref={sheetRef} className="sheet" style={{ ['--sheet-ratio' as string]: `${ratio}`, ['--sheet-zoom' as string]: `${zoom}`, cursor }} onWheel={onWheel} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => { if (!draft && !cadDraft && !dragEntityRef.current) setSnapPoint(null); }} onPointerCancel={() => { setDraft(null); setCadDraft(null); if (dragEntityRef.current) onCadWorkspaceChange(dragEntityRef.current.before); dragEntityRef.current = null; }} onContextMenu={onContextMenu}>
         {artboard ? <img className="sheet__img" src={artboard.imageRef} alt="生成的技術圖面" draggable={false} /> : <div className="sheet__empty"><p className="sheet__empty-title">尚無底圖</p><p className="sheet__empty-desc">可直接使用上方 CAD 工具繪製，或先由 AI 產生圖面。</p></div>}
-        {showGrid && <div className="sheet__grid" />}
+        {artboard?.textLabels && artboard.textLabels.length > 0 && shouldOverlayLabels({ text: drawingText, textLanguage: artboard.intent.textLanguage }) && (
+        /* 草稿文字標示補回：viewBox 用底圖原始像素並以 meet 對齊，與 object-fit: contain 的圖完全重疊。 */
+        <svg className={`sheet__labels${artboard.intent.lineStyle === 'blueprint' ? ' sheet__labels--dark' : ''}`} viewBox={`0 0 ${artboard.width} ${artboard.height}`} preserveAspectRatio="xMidYMid meet" aria-label="圖面文字標示" style={{ fontFamily: LABEL_FONT_STACK }}>
+          {placeLabels(artboard.textLabels, artboard.width, artboard.height).map((label, index) => (
+            <text key={`${index}:${label.text}`} x={label.x} y={label.y} fontSize={label.fontSize} textAnchor={label.anchor} strokeWidth={Math.max(2, label.fontSize * 0.22)} transform={label.rotate ? `rotate(${label.rotate} ${label.x} ${label.y})` : undefined}>{label.text}</text>
+          ))}
+        </svg>
+      )}
+      {showGrid && <div className="sheet__grid" />}
         <svg className="cad-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="CAD 物件">
           {visibleEntities.map((entity) => <CadShape key={entity.id} entity={entity} selected={selected.has(entity.id)} />)}
           {cadDraft && (cadWorkspace.activeTool === 'rectangle'

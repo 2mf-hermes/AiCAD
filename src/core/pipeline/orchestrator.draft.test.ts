@@ -58,7 +58,7 @@ const intent = () =>
     lineStyle: 'technical-ink',
     textLanguage: 'en',
     annotation: { dimensions: true, unit: 'mm', projection: 'first', tolerance: false },
-    text: { renderMode: 'app-overlay', title: '', date: '', customFields: [] },
+    text: { renderMode: 'application', title: '', date: '', customFields: [] },
     measurements: {},
     projection: 'first',
     exclude: [],
@@ -85,6 +85,24 @@ describe('draft → svg → image 管線', () => {
     const prompt = String(calls[1].input.prompt);
     expect(prompt).toContain('construction draft');
     expect(board.resolvedPrompt).toBe(prompt);
+  });
+
+  it('草稿文字標示存進圖面供補回，但完全不進入生圖提示詞', async () => {
+    textReply = async () => '<svg viewBox="0 0 1000 700"><line x1="40" y1="40" x2="900" y2="40"/><text x="500" y="70" text-anchor="middle">FRONT VIEW</text></svg>';
+    const board = await generate(intent(), deps(settingsFor()));
+    expect(board.textLabels).toHaveLength(1);
+    expect(board.textLabels?.[0]).toMatchObject({ text: 'FRONT VIEW', anchor: 'middle' });
+    const prompt = String(calls.at(-1)?.input.prompt);
+    expect(prompt).not.toContain('FRONT VIEW');
+    expect(prompt).toContain('Draw NO text at all');
+    expect(String(calls.at(-1)?.input.negativePrompt)).toContain('letters');
+  });
+
+  it('交給生圖模型畫字時不保存標示，避免文字重複', async () => {
+    textReply = async () => '<svg><line x1="40" y1="40" x2="900" y2="40"/><text x="5" y="5">A</text></svg>';
+    const imageText = { ...(intent() as Record<string, unknown>), text: { renderMode: 'image-model', title: '', date: '', customFields: [] } } as never;
+    const board = await generate(imageText, deps(settingsFor()));
+    expect(board.textLabels).toBeUndefined();
   });
 
   it('草稿階段用 SVG 指令，不沿用精煉用的幾何描述指令', async () => {

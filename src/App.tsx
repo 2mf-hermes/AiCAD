@@ -12,6 +12,7 @@ import {
 import { createDefaultIntent, type Artboard, type DrawingIntent, type MaskRegion } from './core/types';
 import { createDefaultCadWorkspace } from './core/cad';
 import { createSafeId } from './core/projectSafety';
+import { compositeLabelsPng, shouldOverlayLabels } from './core/textOverlay';
 import { resolveRunTimeoutSec } from './core/runTimeout';
 import { I18nProvider, useT } from './i18n';
 import { DrawingCanvas } from './ui/DrawingCanvas';
@@ -373,10 +374,15 @@ function Workspace({
     setMasks((m) => [...m, { ...r, id: createSafeId('mask'), instruction: '' }]);
   }, []);
 
-  const exportPng = useCallback(() => {
+  const exportPng = useCallback(async () => {
     if (!current) return;
+    /* 草稿文字標示只疊在畫面上，匯出時要合成進 PNG，否則匯出圖會少了文字。 */
+    let href = current.imageRef;
+    if (current.textLabels?.length && shouldOverlayLabels(current.intent)) {
+      try { href = await compositeLabelsPng(current.imageRef, current.textLabels, current.intent.lineStyle === 'blueprint'); } catch { href = current.imageRef; }
+    }
     const a = document.createElement('a');
-    a.href = current.imageRef;
+    a.href = href;
     a.download = `aicad-${new Date(current.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '')}.png`;
     a.click();
   }, [current]);

@@ -138,7 +138,9 @@ export function buildPositivePrompt(intent: DrawingIntent): string {
 
 /** 產出負向提示語 */
 export function buildNegativePrompt(intent: DrawingIntent): string {
-  return [...BASELINE_EXCLUDE, ...intent.exclude.filter((s) => s.trim())].join(', ');
+  // 文字由應用程式補回時，任何字形都只會是亂碼來源，明確列入負面提示。
+  const textFree = intent.text.renderMode === 'image-model' ? [] : ['any text', 'letters', 'numbers', 'words', 'characters', 'labels', 'typography'];
+  return [...BASELINE_EXCLUDE, ...textFree, ...intent.exclude.filter((s) => s.trim())].join(', ');
 }
 
 /** 局部重繪：只描述選區內要發生的變化，並鎖住其餘部分 */

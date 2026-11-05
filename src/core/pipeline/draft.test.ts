@@ -20,7 +20,8 @@ const intent = (): DrawingIntent =>
     lineStyle: 'technical-ink',
     textLanguage: 'zh-Hant',
     annotation: { dimensions: true, unit: 'mm', projection: 'first', tolerance: false },
-    text: { renderMode: 'app-overlay', title: '', date: '', customFields: [] },
+    text: { renderMode: 'application', title: '', date: '', customFields: [] },
+    measurements: { 長度: '120 mm' },
     exclude: [],
     references: [],
   }) as unknown as DrawingIntent;
@@ -102,10 +103,30 @@ describe('summarizeDraft', () => {
 });
 
 describe('草稿提示詞', () => {
-  it('草稿指令要求 SVG 並禁止文字元素', () => {
+  it('草稿指令要求 SVG，只允許受限的 <text> 標示', () => {
     const prompt = buildDraftSystemPrompt();
     expect(prompt).toMatch(/<svg>/);
-    expect(prompt).toContain('Do NOT include any <text>');
+    expect(prompt).toContain('<text> is allowed ONLY');
+    expect(prompt).toContain('Do NOT include <tspan>');
+  });
+
+  it('應用程式負責文字時要求標示並帶入使用者提供的尺寸值', () => {
+    const request = buildDraftRequest(intent());
+    expect(request).toContain('Traditional Chinese');
+    expect(request).toContain('長度 = 120 mm');
+  });
+
+  it('生圖模型負責文字或無語言時不要求標示', () => {
+    const imageModel = { ...intent(), text: { ...intent().text, renderMode: 'image-model' } } as DrawingIntent;
+    expect(buildDraftRequest(imageModel)).toContain('Do NOT include any <text>');
+    const none = { ...intent(), textLanguage: 'none' } as DrawingIntent;
+    expect(buildDraftRequest(none)).toContain('Do NOT include any <text>');
+  });
+
+  it('有標示時生圖提示要求完全不畫文字，且不洩漏標示內容', () => {
+    const merged = mergeDraftIntoPrompt('BASE', { svg: '<svg/>', summary: 's', labels: [{ text: 'SECRET-LABEL', x: 0.1, y: 0.1, anchor: 'start', size: 0.02, rotate: 0 }] }, true);
+    expect(merged).toContain('Draw NO text at all');
+    expect(merged).not.toContain('SECRET-LABEL');
   });
 
   it('請求帶上圖面類型與單位，讓草稿模型知道要畫什麼', () => {

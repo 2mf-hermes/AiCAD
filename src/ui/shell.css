@@ -312,6 +312,24 @@
 .canvas-context-menu button:disabled { opacity: .38; }
 .canvas-context-menu kbd { color: var(--fg-tertiary); font-size: 10px; }
 .canvas-context-menu__separator { height: 1px; margin: 4px; background: var(--line-hairline); }
+.sheet__labels {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+}
+.sheet__labels text {
+  fill: #15191e;
+  stroke: rgba(255, 255, 255, .94);
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+  font-weight: 500;
+}
+.sheet__labels--dark text { fill: #eaf3ff; stroke: rgba(15, 43, 70, .92); }
 .sheet__measurements {
   position: absolute;
   left: 5%;

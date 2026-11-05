@@ -96,6 +96,16 @@ export interface MaskRegion {
 }
 
 /** 一次生成/編輯的產出 */
+/** 草稿中的文字標示。座標與字高皆為 0..1 正規化值，與圖片解析度脫鉤，生圖後由應用程式補回。 */
+export interface DrawingTextLabel {
+  text: string;
+  x: number;
+  y: number;
+  anchor: 'start' | 'middle' | 'end';
+  size: number;
+  rotate: number;
+}
+
 export interface Artboard {
   id: string;
   createdAt: number;
@@ -111,6 +121,8 @@ export interface Artboard {
   resolvedPrompt: string;
   providerId: string;
   model: string;
+  /** 草稿擷取的文字標示（選填，舊檔沒有此欄位）。 */
+  textLabels?: DrawingTextLabel[];
 }
 
 /** 顯示順序的單一來源。標籤文字改由 i18n 字典提供（t.kind / t.lineStyle），

@@ -3,6 +3,7 @@ import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt } from '..
 import {
   buildDraftRequest,
   buildDraftSystemPrompt,
+  extractTextLabels,
   mergeDraftIntoPrompt,
   normalizeDraftSvg,
   renderDraftPng,
@@ -20,8 +21,9 @@ import {
   type ProviderRequest,
 } from '../providers/types';
 import type { Settings } from '../settings';
-import type { Artboard, DrawingIntent, MaskRegion } from '../types';
+import type { Artboard, DrawingIntent, DrawingTextLabel, MaskRegion } from '../types';
 import { createSafeId } from '../projectSafety';
+import { shouldOverlayLabels } from '../textOverlay';
 
 export interface RunProgress {
   stage: 'drafting' | 'refining' | 'drawing' | 'compositing';
@@ -166,7 +168,7 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSv
       }),
     );
     const svg = normalizeDraftSvg(result);
-    return svg ? { svg, summary: summarizeDraft(svg) } : null;
+    return svg ? { svg, summary: summarizeDraft(svg), labels: shouldOverlayLabels(intent) ? extractTextLabels(result) : [] } : null;
   } catch {
     return null;
   }
@@ -236,7 +238,7 @@ export async function generate(intent: DrawingIntent, deps: RunDeps): Promise<Ar
     deps.signal,
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在繪製圖面${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
-  return artboard(result, intent, prompt, config);
+  return artboard(result, intent, prompt, config, draft?.labels);
 }
 
 export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDeps): Promise<Artboard> {
@@ -261,14 +263,16 @@ export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDe
     deps.signal,
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在重繪選區${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
-  return { ...artboard(result, source.intent, prompt, config), parentId: source.id, masks: structuredClone(masks) };
+  /* 標示從未被畫進底圖，所以重繪不會毀掉或重複它們；沿用來源標示即可，使用者看到的文字維持不變。 */
+  return { ...artboard(result, source.intent, prompt, config, source.textLabels), parentId: source.id, masks: structuredClone(masks) };
 }
 
-function artboard(result: ImageResult, intent: DrawingIntent, prompt: string, config: ProviderConfig): Artboard {
+function artboard(result: ImageResult, intent: DrawingIntent, prompt: string, config: ProviderConfig, labels?: DrawingTextLabel[]): Artboard {
   return {
     id: createSafeId('result'), createdAt: Date.now(), imageRef: `data:image/png;base64,${result.base64}`,
     width: result.width, height: result.height, intent: structuredClone(intent), resolvedPrompt: prompt,
     providerId: config.id, model: config.model || config.imageModel || '(服務端預設)',
+    textLabels: labels && labels.length > 0 ? labels : undefined,
   };
 }
 

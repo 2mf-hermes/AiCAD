@@ -1,4 +1,5 @@
 import { createDefaultIntent, type Artboard, type DrawingIntent, type MaskRegion } from './types';
+import { normalizeTextLabels } from './textOverlay';
 import { normalizeCadWorkspace, type CadWorkspaceState } from './cad';
 import { normalizeReferences } from './references';
 import { createSafeId } from './projectSafety';
@@ -131,7 +132,7 @@ function normalizeArtboard(value: unknown, intent: DrawingIntent): Artboard | nu
   if (!imageRef) return null;
   const width = raw.width; const height = raw.height;
   if (typeof width !== 'number' || !Number.isFinite(width) || width <= 0 || typeof height !== 'number' || !Number.isFinite(height) || height <= 0) return null;
-  return { id: asString(raw.id) || createSafeId('project'), createdAt: asTimestamp(raw.createdAt), imageRef, width, height, intent: normalizeIntent(raw.intent, intent), parentId: asString(raw.parentId) || undefined, masks: normalizeMasks(raw.masks), resolvedPrompt: asString(raw.resolvedPrompt), providerId: asString(raw.providerId, 'legacy'), model: asString(raw.model, '(legacy)') };
+  return { id: asString(raw.id) || createSafeId('project'), createdAt: asTimestamp(raw.createdAt), imageRef, width, height, intent: normalizeIntent(raw.intent, intent), parentId: asString(raw.parentId) || undefined, masks: normalizeMasks(raw.masks), resolvedPrompt: asString(raw.resolvedPrompt), providerId: asString(raw.providerId, 'legacy'), model: asString(raw.model, '(legacy)'), textLabels: normalizeTextLabels(raw.textLabels) };
 }
 
 /** Safely migrates historic project documents before any UI state is updated. */
