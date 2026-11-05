@@ -12,9 +12,13 @@
 #     3. 以同一份檔案建立 GitHub Release（tag = v<版本>）
 #
 #  用法：
-#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0
-#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -Draft
-#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0 -Prerelease
+#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0
+#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Draft
+#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -Prerelease
+#      powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.3.0 -NotesFile notes.md
+#
+#   -NotesFile: read release notes from a UTF-8 file. Prefer this when the notes
+#   contain CJK text: it avoids command-line quoting and encoding problems.
 #
 #  前置：已安裝 gh 並完成 gh auth login；建置環境需 Node.js 與 Go。
 # =============================================================================
@@ -24,7 +28,8 @@ param(
     [switch]$Draft,
     [switch]$Prerelease,
     [switch]$SkipBuild,
-    [string]$Notes = ""
+    [string]$Notes = "",
+    [string]$NotesFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,6 +42,11 @@ function Step($msg) { Write-Host "`n>>> $msg" -ForegroundColor Cyan }
 $tag = if ($Version.StartsWith("v")) { $Version } else { "v$Version" }
 $clean = $tag.TrimStart("v", "V")
 
+if ($NotesFile) {
+    if (-not (Test-Path $NotesFile)) { throw "notes file not found: $NotesFile" }
+    $Notes = [System.IO.File]::ReadAllText($NotesFile, [System.Text.Encoding]::UTF8)
+    if (-not $Notes.Trim()) { throw "notes file is empty: $NotesFile" }
+}
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "找不到 gh CLI。請先安裝並執行 gh auth login。"
 }
