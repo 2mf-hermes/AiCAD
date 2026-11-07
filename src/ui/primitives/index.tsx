@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import './primitives.css';
 
 export { Select } from './Select';
@@ -120,21 +120,49 @@ export function Section({
   title,
   aside,
   variant = 'plain',
+  collapsible,
+  defaultOpen = true,
   children,
 }: {
   title: string;
   aside?: ReactNode;
   /** `block` = 側欄用的卡片外框（見 .section--block）。設定頁維持 plain。 */
   variant?: 'plain' | 'block';
+  /**
+   * 可縮合／展開。左右兩側欄的每個區塊都要能收合，所以 block 預設為 true；
+   * 設定頁維持 plain（不收合），外觀與行為不變。
+   */
+  collapsible?: boolean;
+  /** 初始展開狀態（僅 collapsible 時有效）。 */
+  defaultOpen?: boolean;
   children: ReactNode;
 }) {
+  const canCollapse = collapsible ?? variant === 'block';
+  const [open, setOpen] = useState(defaultOpen);
+
   return (
     <section className={variant === 'block' ? 'section section--block' : 'section'}>
       <div className="section__head">
-        <h3 className="section__title">{title}</h3>
+        {canCollapse ? (
+          <h3 className="section__title">
+            <button
+              type="button"
+              className="section__toggle"
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+            >
+              <span className={open ? 'section__chevron' : 'section__chevron section__chevron--closed'} aria-hidden="true">
+                ▾
+              </span>
+              <span className="section__label">{title}</span>
+            </button>
+          </h3>
+        ) : (
+          <h3 className="section__title">{title}</h3>
+        )}
         {aside}
       </div>
-      {children}
+      {(!canCollapse || open) && children}
     </section>
   );
 }

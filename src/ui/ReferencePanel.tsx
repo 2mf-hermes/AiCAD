@@ -6,7 +6,7 @@ export function ReferencePanel({ value, onChange }: { value: ReferenceAttachment
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  return <Section title="參考圖片與文件">
+return <Section variant="block" title="參考圖片與檔案">
     <p>圖片由視圖模型辨識，文字／CSV／JSON 由主文字模型分析。生成時會傳送至所設定的 AI Provider，請勿上傳無權分享的資料。</p>
     <div className="reference-picker">
       <input ref={inputRef} className="reference-picker__input" aria-label="上傳參考資料" type="file" multiple disabled={busy} accept="image/png,image/jpeg,image/webp,.txt,.md,.csv,.json,.xml,.yaml,.yml,.log" onChange={async e => {

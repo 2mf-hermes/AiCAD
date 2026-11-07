@@ -296,6 +296,99 @@
   color: var(--fg-secondary);
 }
 
+/* 可縮合的區塊標題（側欄卡片）：點標題即可收合／展開內容。
+   設定頁維持 plain 外觀，不受影響。 */
+.section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.section__toggle:hover {
+  color: var(--fg-primary);
+}
+.section__chevron {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--fg-tertiary);
+  transition: transform 140ms ease;
+}
+.section__chevron--closed {
+  transform: rotate(-90deg);
+}
+
+/* 可縮合的區塊標題（側欄卡片）：點標題即可收合／展開內容。
+   設定頁維持 plain 外觀，不受影響。 */
+.section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.section__toggle:hover {
+  color: var(--fg-primary);
+}
+.section__chevron {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--fg-tertiary);
+  transition: transform 140ms ease;
+}
+.section__chevron--closed {
+  transform: rotate(-90deg);
+}
+
+/* 可縮合的區塊標題（側欄卡片）：點標題即可收合／展開內容。
+   設定頁維持 plain 外觀，不受影響。 */
+.section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.section__toggle:hover {
+  color: var(--fg-primary);
+}
+.section__chevron {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--fg-tertiary);
+  transition: transform 140ms ease;
+}
+.section__chevron--closed {
+  transform: rotate(-90deg);
+}
+
 .divider {
   height: 1px;
   background: var(--line-hairline);

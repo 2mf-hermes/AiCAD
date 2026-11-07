@@ -31,7 +31,7 @@ import {
 } from './ui/icons';
 import { IntentPanel } from './ui/IntentPanel';
 import { Button, Dot, Field, Section, Select } from './ui/primitives';
-import { SettingsSheet } from './ui/SettingsSheet';
+import { SettingsSheet, type CategoryId } from './ui/SettingsSheet';
 import { UpdatePromptDialog } from './ui/UpdatePromptDialog';
 import { canAutoUpdate, updateBackend, type UpdateInfo } from './core/update';
 import { ProjectSheet } from './ui/ProjectSheet';
@@ -63,6 +63,8 @@ export default function App() {
   /* 開機自動檢查的結果。與設定頁各自獨立：這邊只負責「啟動時發現有新版」
      就提示一次，不做下載（下載仍在設定 → 更新頁，流程與狀態機都完整）。 */
   const [autoUpdateInfo, setAutoUpdateInfo] = useState<UpdateInfo | null>(null);
+  /* 開機更新提示按「前往更新」時，要直接把設定頁開到「更新」分頁。 */
+  const [settingsCategory, setSettingsCategory] = useState<CategoryId | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -126,13 +128,20 @@ export default function App() {
 
   return (
     <I18nProvider locale={settings.language}>
-      <Workspace settings={settings} onSettings={setSettings} />
+      <Workspace
+        settings={settings}
+        onSettings={setSettings}
+        settingsCategory={settingsCategory}
+        onSettingsCategory={setSettingsCategory}
+      />
       {autoUpdateInfo && (
         <UpdatePromptDialog
           version={autoUpdateInfo.version}
-          notes={autoUpdateInfo.notes}
           onLater={() => setAutoUpdateInfo(null)}
-          onRetry={() => setAutoUpdateInfo(null)}
+          onGoToUpdate={() => {
+            setAutoUpdateInfo(null);
+            setSettingsCategory('updates');
+          }}
         />
       )}
     </I18nProvider>
@@ -142,12 +151,22 @@ export default function App() {
 function Workspace({
   settings,
   onSettings,
+  settingsCategory,
+  onSettingsCategory,
 }: {
   settings: Settings;
   onSettings: (s: Settings) => void;
+  /** 設定頁要開啟的分頁；由 App 層的更新提示指定（updates）。 */
+  settingsCategory: CategoryId | null;
+  /** 切換設定頁分頁 */
+  onSettingsCategory: (category: CategoryId | null) => void;
 }) {
   const t = useT();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /* App 層指定分頁時（例如開機更新提示的「前往更新」）自動開啟設定頁。 */
+  useEffect(() => {
+    if (settingsCategory) setSettingsOpen(true);
+  }, [settingsCategory]);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projectDialog, setProjectDialog] = useState<null | { kind: 'new' } | { kind: 'save'; value: string } | { kind: 'delete'; id: string } | { kind: 'close' } | { kind: 'open'; id: string }>(null);
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
@@ -524,7 +543,10 @@ function Workspace({
             aria-label={t.app.preferences}
             title={t.app.preferences}
             aria-pressed={settingsOpen}
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => {
+              onSettingsCategory('general');
+              setSettingsOpen(true);
+            }}
           >
             <IconSettings size={16} />
           </button>
@@ -790,6 +812,7 @@ function Workspace({
         <SettingsSheet
           settings={settings}
           onChange={onSettings}
+          initialCategory={settingsCategory ?? 'general'}
           onClose={() => setSettingsOpen(false)}
         />
       )}
