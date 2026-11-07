@@ -450,14 +450,95 @@ func noStore(next http.Handler) http.Handler {
 	})
 }
 
+/* ---------------------------------------------------------------------------
+   單一實例：具名 mutex
+   ---------------------------------------------------------------------------
+   持有的是核心物件的 handle，不是「鎖」。這裡刻意把 handle 留下來，因為自我更新
+   必須先把實例讓出來：新版本的行程才 CreateMutexW 得成功。舊行程若仍握著它，
+   新行程會拿到 ERROR_ALREADY_EXISTS 而直接結束 —— 使用者看到的就是
+   「更新後點重新啟動，只有關閉、沒有重啟」。
+   --------------------------------------------------------------------------- */
+
+const (
+	singleInstanceName = `Global\AiCad.SingleInstance.0`
+	// CreateMutexW 在物件已存在時仍算成功，但會留下這個 error code。
+	errorAlreadyExists = syscall.Errno(183)
+	// 更新接手：父行程已先讓鎖，正常情況下立刻取得；仍留重試窗以吸收任何殘留 handle。
+	updateHandoffEnv      = "AICAD_UPDATE_HANDOFF"
+	updateHandoffWait     = 5 * time.Second
+	instanceRetryInterval = 100 * time.Millisecond
+)
+
+var (
+	kernel32Instance = syscall.NewLazyDLL("kernel32.dll")
+	procCreateMutexW = kernel32Instance.NewProc("CreateMutexW")
+	procCloseHandle  = kernel32Instance.NewProc("CloseHandle")
+	procSetLastError = kernel32Instance.NewProc("SetLastError")
+)
+
+// instanceMutex 是本行程持有的具名 mutex handle；0 表示尚未持有。
+var instanceMutex uintptr
+
 func acquireSingleInstance() bool {
-	name, _ := syscall.UTF16PtrFromString("Global\\AiCad.SingleInstance.0")
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	h, _, err := kernel32.NewProc("CreateMutexW").Call(0, 0, uintptr(unsafe.Pointer(name)))
-	if h == 0 || err == syscall.Errno(183) { // ERROR_ALREADY_EXISTS
-		return false
+	wait := time.Duration(0)
+	if os.Getenv(updateHandoffEnv) == "1" {
+		wait = updateHandoffWait
 	}
-	return true
+	if h := waitForMutex(singleInstanceName, wait); h != 0 {
+		instanceMutex = h
+		return true
+	}
+	return false
+}
+
+// releaseSingleInstance 關閉 handle，讓出具名物件。具名物件在最後一個 handle
+// 關閉時銷毀，之後 CreateMutexW 才會重新成功 —— 這是更新重啟的必要一步。
+func releaseSingleInstance() {
+	if instanceMutex == 0 {
+		return
+	}
+	closeHandle(instanceMutex)
+	instanceMutex = 0
+}
+
+// waitForMutex 在 window 內反覆嘗試取得具名 mutex；window 為 0 時只試一次，
+// 也就是一般雙擊啟動的行為：立刻判斷後結束，不拖慢使用者。
+func waitForMutex(name string, window time.Duration) uintptr {
+	deadline := time.Now().Add(window)
+	for {
+		if h := createMutex(name); h != 0 {
+			return h
+		}
+		if !time.Now().Before(deadline) {
+			return 0
+		}
+		time.Sleep(instanceRetryInterval)
+	}
+}
+
+// createMutex 回傳具名 mutex 的 handle；已被本機其他行程持有時回 0。
+func createMutex(name string) uintptr {
+	ptr, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return 0
+	}
+	// 先清掉執行緒的 last error，才不會把不相關的舊錯誤誤判成「已存在」。
+	procSetLastError.Call(0)
+	h, _, lastErr := procCreateMutexW.Call(0, 0, uintptr(unsafe.Pointer(ptr)))
+	if h == 0 {
+		return 0
+	}
+	if lastErr == errorAlreadyExists {
+		// 這裡只是借到既有物件的 handle：不關掉會讓物件活過原持有者，
+		// 之後連原持有者讓鎖後都拿不回來。
+		closeHandle(h)
+		return 0
+	}
+	return h
+}
+
+func closeHandle(h uintptr) {
+	procCloseHandle.Call(h)
 }
 
 func newToken() (string, error) {

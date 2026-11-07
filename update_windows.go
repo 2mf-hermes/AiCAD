@@ -1034,9 +1034,16 @@ func installUpdate() error {
 		return fmt.Errorf("無法寫入新版本: %w", err)
 	}
 
+	// 先讓出實例鎖，再啟動新版本：新行程的 main() 會重新建立同名 mutex，
+	// 若舊行程還握著它，新行程會直接結束（使用者只看到「關閉但沒重啟」）。
+	// 環境變數則告訴新行程「這是一次接手」，讓它在必要時多等一會兒。
+	releaseSingleInstance()
+
 	cmd := exec.Command(exe)
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), updateHandoffEnv+"=1")
 	if err := cmd.Start(); err != nil {
+		acquireSingleInstance() // 新版本起不來，把實例鎖拿回來，避免過程中多開
 		restore()
 		return fmt.Errorf("新版本啟動失敗，已還原舊版本: %w", err)
 	}
