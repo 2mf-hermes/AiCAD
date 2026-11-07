@@ -37,6 +37,8 @@ export const zhHans: Dict = {
 
   intent: {
     kindSection: '图纸类型',
+    textSection: '文字与标题',
+    customFieldsSection: '自定义标题栏',
     kindLabel: '类别',
     kindHint: '决定视图配置与标注惯例',
     subject: '主体描述',
@@ -55,6 +57,7 @@ export const zhHans: Dict = {
     unit: '单位',
 
     specSection: '制图规范',
+    annotationSection: '标注项目',
     projection: '投影法',
     projectionHint: '第一角为 ISO 惯例；第三角为 ANSI',
     firstAngle: '第一角',
@@ -152,6 +155,7 @@ export const zhHans: Dict = {
 
     history: '历史',
     historyEmpty: '每次生成与重绘都会保留，可随时回溯比对。',
+    historyDelete: '删除此条历史',
 
     params: '本次参数',
     engine: '引擎',

@@ -279,6 +279,23 @@
   text-transform: uppercase;
   color: var(--fg-tertiary);
 }
+/* 卡片版：僅側欄使用。一個功能一張卡，
+   讓「圖面規格」與「引擎與歷程」兩欄不再糊成一片。
+   不動 .section 本身，設定頁的外觀因此不變。 */
+.section--block {
+  background: var(--bg-raised);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+}
+.section--block > .section__head {
+  align-items: center;
+}
+.section--block .section__title {
+  font-size: var(--fs-caption);
+  color: var(--fg-secondary);
+}
+
 .divider {
   height: 1px;
   background: var(--line-hairline);

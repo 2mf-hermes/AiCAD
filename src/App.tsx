@@ -17,6 +17,7 @@ import { resolveRunTimeoutSec } from './core/runTimeout';
 import { I18nProvider, useT } from './i18n';
 import { DrawingCanvas } from './ui/DrawingCanvas';
 import {
+  IconClose,
   IconDimension,
   IconExport,
   IconFolder,
@@ -173,6 +174,21 @@ function Workspace({
   const current = useMemo(
     () => history.find((a) => a.id === currentId) ?? null,
     [history, currentId],
+  );
+
+  /** 刪除單筆歷程。刪掉目前檢視的版本時，順移到同位置的下一筆（沒有就退到上一筆）。 */
+  const removeHistory = useCallback(
+    (id: string) => {
+      const index = history.findIndex((a) => a.id === id);
+      if (index === -1) return;
+      const next = history.filter((a) => a.id !== id);
+      setHistory(next);
+      if (currentId === id) {
+        setCurrentId(next[Math.min(index, next.length - 1)]?.id ?? null);
+        setMasks([]);
+      }
+    },
+    [currentId, history],
   );
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -617,7 +633,7 @@ function Workspace({
             </span>
           </div>
           <div className="panel__scroll">
-            <Section title={t.right.refineEngine}>
+            <Section variant="block" title={t.right.refineEngine}>
               <Select<ProviderId | 'none'>
                 ariaLabel={t.right.refineEngine}
                 value={settings.activeTextProvider}
@@ -628,7 +644,7 @@ function Workspace({
                 {enabledText.length > 0 ? t.right.refineOn : t.right.refineOff}
               </p>
             </Section>
-            <Section title={t.right.imageEngine}>
+            <Section variant="block" title={t.right.imageEngine}>
               <Select<ProviderId>
                 ariaLabel={t.right.imageEngine}
                 value={settings.activeImageProvider}
@@ -637,9 +653,7 @@ function Workspace({
               />
             </Section>
 
-            <hr className="divider" />
-
-            <Section title={t.right.masks} aside={<span className="field__hint num">{masks.length}</span>}>
+            <Section variant="block" title={t.right.masks} aside={<span className="field__hint num">{masks.length}</span>}>
               {masks.length === 0 ? (
                 <p className="empty-note">
                   {current ? t.right.maskEmptyReady : t.right.maskEmptyNoImage}
@@ -683,9 +697,8 @@ function Workspace({
               )}
             </Section>
 
-            <hr className="divider" />
-
             <Section
+              variant="block"
               title={t.right.history}
               aside={
                 history.length > 0 ? (
@@ -700,19 +713,29 @@ function Workspace({
               ) : (
                 <div className="history">
                   {history.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      className="history__item"
-                      aria-current={a.id === currentId}
-                      title={new Date(a.createdAt).toLocaleTimeString()}
-                      onClick={() => {
-                        setCurrentId(a.id);
-                        setMasks([]);
-                      }}
-                    >
-                      <img src={a.imageRef} alt="" />
-                    </button>
+                    <div className="history__cell" key={a.id}>
+                      <button
+                        type="button"
+                        className="history__item"
+                        aria-current={a.id === currentId}
+                        title={new Date(a.createdAt).toLocaleTimeString()}
+                        onClick={() => {
+                          setCurrentId(a.id);
+                          setMasks([]);
+                        }}
+                      >
+                        <img src={a.imageRef} alt="" />
+                      </button>
+                      <button
+                        type="button"
+                        className="history__del"
+                        aria-label={t.right.historyDelete}
+                        title={t.right.historyDelete}
+                        onClick={() => removeHistory(a.id)}
+                      >
+                        <IconClose size={12} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -720,8 +743,7 @@ function Workspace({
 
             {current && (
               <>
-                <hr className="divider" />
-                <Section title={t.right.params}>
+                <Section variant="block" title={t.right.params}>
                   <Field label={t.right.engine}>
                     <input
                       className="input"

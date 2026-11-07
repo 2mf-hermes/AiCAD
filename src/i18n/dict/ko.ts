@@ -37,6 +37,8 @@ export const ko: Dict = {
 
   intent: {
     kindSection: '도면 종류',
+    textSection: '문자 및 표제',
+    customFieldsSection: '사용자 표제 필드',
     kindLabel: '분류',
     kindHint: '투상 배치와 치수 기입 관례가 결정됩니다',
     subject: '대상 설명',
@@ -56,6 +58,7 @@ export const ko: Dict = {
     unit: '단위',
 
     specSection: '제도 규격',
+    annotationSection: '주석 항목',
     projection: '투상법',
     projectionHint: '제1각법은 ISO 관례, 제3각법은 KS／ANSI에서 일반적입니다',
     firstAngle: '제1각법',
@@ -153,6 +156,7 @@ export const ko: Dict = {
 
     history: '기록',
     historyEmpty: '생성과 재작업이 모두 보관되어 언제든 비교하고 되돌릴 수 있습니다.',
+    historyDelete: '이 기록 삭제',
 
     params: '이번 실행 정보',
     engine: '엔진',

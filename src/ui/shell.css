@@ -113,7 +113,9 @@
   padding: var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  /* 卡片之間的間距：比卡片內部的 --sp-3 大，
+     群組才看得出來。 */
+  gap: var(--sp-4);
 }
 .panel__foot {
   flex: 0 0 auto;
@@ -541,6 +543,10 @@
   grid-template-columns: repeat(2, 1fr);
   gap: var(--sp-2);
 }
+.history__cell {
+  position: relative;
+  display: flex;
+}
 .history__item {
   position: relative;
   aspect-ratio: 3 / 2;
@@ -565,6 +571,41 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* 單筆刪除：預設隱形，游標進入縮圖才出現。
+   pointer-events 在隱形時關閉，避免誤觸；但不影響
+   鍵盤 Tab 焦點，焦點一到 (:focus-within) 即顯示。 */
+.history__del {
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-1);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--material-thick);
+  color: var(--fg-secondary);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.history__cell:hover .history__del,
+.history__cell:focus-within .history__del {
+  opacity: 1;
+  pointer-events: auto;
+}
+.history__del:hover,
+.history__del:focus-visible {
+  color: var(--danger);
+}
+.history__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* ---- 空狀態文字（側欄用） ---------------------------------------------- */

@@ -44,6 +44,8 @@ export const zhHant = {
 
   intent: {
     kindSection: '圖面類型',
+    textSection: '文字與標題',
+    customFieldsSection: '自訂標題欄位',
     kindLabel: '類別',
     kindHint: '決定視角配置與標註慣例',
     subject: '主體描述',
@@ -61,6 +63,7 @@ export const zhHant = {
     unit: '單位',
 
     specSection: '製圖規範',
+    annotationSection: '標註項目',
     projection: '投影法',
     projectionHint: '第一角為 ISO／台灣慣例；第三角為 ANSI',
     firstAngle: '第一角',
@@ -159,6 +162,7 @@ export const zhHant = {
 
     history: '歷程',
     historyEmpty: '每次生成與重繪都會保留，可隨時回溯比對。',
+    historyDelete: '刪除此筆歷程',
 
     params: '本次參數',
     engine: '引擎',

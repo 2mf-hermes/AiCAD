@@ -52,7 +52,7 @@ export function IntentPanel({ intent, onChange }: Props) {
 
   return (
     <>
-      <Section title={t.intent.kindSection}>
+      <Section variant="block" title={t.intent.kindSection}>
         <Field label={t.intent.kindLabel} hint={t.intent.kindHint}>
           <Select<DrawingKind>
             ariaLabel={t.intent.kindLabel}
@@ -82,7 +82,11 @@ export function IntentPanel({ intent, onChange }: Props) {
             onChange={(e) => onChange({ ...intent, categoryContent: e.target.value })}
           />
         </Field>
-        <ReferencePanel value={intent.references ?? []} onChange={(references) => onChange({ ...intent, references })} />
+      </Section>
+
+      <ReferencePanel value={intent.references ?? []} onChange={(references) => onChange({ ...intent, references })} />
+
+      <Section variant="block" title={t.intent.textSection}>
         <Field label={t.intent.textLanguage} hint={t.intent.textLanguageHint}>
           <Select<DrawingTextLanguage>
             ariaLabel={t.intent.textLanguage}
@@ -109,29 +113,30 @@ export function IntentPanel({ intent, onChange }: Props) {
         <Field label="日期">
           <input className="input" value={intent.text.date} onChange={(e) => patchText({ date: e.target.value })} />
         </Field>
-        <Section
-          title="自訂標題欄位"
-          aside={
-            <button type="button" className="btn btn--ghost btn--sm" onClick={() => patchText({ customFields: [...intent.text.customFields, { key: '', value: '' }] })}>
-              {t.common.add}
-            </button>
-          }
-        >
-          {intent.text.customFields.map((field, index) => (
-            <div className="dimrow" key={`title-field-${index}`}>
-              <input className="input" value={field.key} placeholder={t.common.name} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, key: e.target.value } : item) })} />
-              <input className="input" value={field.value} placeholder="值" onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, value: e.target.value } : item) })} />
-              <button type="button" className="iconbtn" aria-label={t.intent.removeRow(field.key || t.intent.thisRow)} onClick={() => patchText({ customFields: intent.text.customFields.filter((_, i) => i !== index) })}>
-                <IconClose size={14} />
-              </button>
-            </div>
-          ))}
-        </Section>
       </Section>
 
-      <hr className="divider" />
+      <Section
+        variant="block"
+        title={t.intent.customFieldsSection}
+        aside={
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => patchText({ customFields: [...intent.text.customFields, { key: '', value: '' }] })}>
+            {t.common.add}
+          </button>
+        }
+      >
+        {intent.text.customFields.map((field, index) => (
+          <div className="dimrow" key={`title-field-${index}`}>
+            <input className="input" value={field.key} placeholder={t.common.name} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, key: e.target.value } : item) })} />
+            <input className="input" value={field.value} placeholder="值" onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, value: e.target.value } : item) })} />
+            <button type="button" className="iconbtn" aria-label={t.intent.removeRow(field.key || t.intent.thisRow)} onClick={() => patchText({ customFields: intent.text.customFields.filter((_, i) => i !== index) })}>
+              <IconClose size={14} />
+            </button>
+          </div>
+        ))}
+      </Section>
 
       <Section
+        variant="block"
         title={t.intent.dimsSection}
         aside={
           <button
@@ -197,9 +202,7 @@ export function IntentPanel({ intent, onChange }: Props) {
         </Field>
       </Section>
 
-      <hr className="divider" />
-
-      <Section title={t.intent.specSection}>
+      <Section variant="block" title={t.intent.specSection}>
         <Field label={t.intent.projection} hint={t.intent.projectionHint}>
           <Segmented<'first' | 'third'>
             ariaLabel={t.intent.projection}
@@ -224,7 +227,9 @@ export function IntentPanel({ intent, onChange }: Props) {
             }))}
           />
         </Field>
+      </Section>
 
+      <Section variant="block" title={t.intent.annotationSection}>
         <div>
           <Toggle
             label={t.intent.dimensions}
@@ -263,9 +268,7 @@ export function IntentPanel({ intent, onChange }: Props) {
         </div>
       </Section>
 
-      <hr className="divider" />
-
-      <Section title={t.intent.extraSection}>
+      <Section variant="block" title={t.intent.extraSection}>
         <Field label={t.intent.notes}>
           <textarea
             className="textarea"

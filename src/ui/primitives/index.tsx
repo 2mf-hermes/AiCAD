@@ -119,14 +119,17 @@ export function Field({ label, hint, children }: FieldProps) {
 export function Section({
   title,
   aside,
+  variant = 'plain',
   children,
 }: {
   title: string;
   aside?: ReactNode;
+  /** `block` = 側欄用的卡片外框（見 .section--block）。設定頁維持 plain。 */
+  variant?: 'plain' | 'block';
   children: ReactNode;
 }) {
   return (
-    <section className="section">
+    <section className={variant === 'block' ? 'section section--block' : 'section'}>
       <div className="section__head">
         <h3 className="section__title">{title}</h3>
         {aside}

@@ -37,6 +37,8 @@ export const en: Dict = {
 
   intent: {
     kindSection: 'Drawing type',
+    textSection: 'Text & title',
+    customFieldsSection: 'Custom title fields',
     kindLabel: 'Category',
     kindHint: 'Determines view layout and annotation conventions',
     subject: 'Subject',
@@ -56,6 +58,7 @@ export const en: Dict = {
     unit: 'Unit',
 
     specSection: 'Drafting standard',
+    annotationSection: 'Annotation items',
     projection: 'Projection',
     projectionHint: 'First angle is the ISO convention; third angle is ANSI',
     firstAngle: 'First angle',
@@ -154,6 +157,7 @@ export const en: Dict = {
 
     history: 'History',
     historyEmpty: 'Every generation and redraw is kept so you can compare and go back.',
+    historyDelete: 'Delete this version',
 
     params: 'Run details',
     engine: 'Engine',

@@ -37,6 +37,8 @@ export const ja: Dict = {
 
   intent: {
     kindSection: '図面の種類',
+    textSection: '文字と表題',
+    customFieldsSection: '表題欄のカスタム項目',
     kindLabel: '種別',
     kindHint: '投影配置と寸法記入の慣例が決まります',
     subject: '対象の記述',
@@ -56,6 +58,7 @@ export const ja: Dict = {
     unit: '単位',
 
     specSection: '製図規格',
+    annotationSection: '注記項目',
     projection: '投影法',
     projectionHint: '第一角法は ISO 準拠、第三角法は JIS／ANSI で一般的です',
     firstAngle: '第一角法',
@@ -153,6 +156,7 @@ export const ja: Dict = {
 
     history: '履歴',
     historyEmpty: '生成と再描画はすべて保存され、いつでも見比べて戻せます。',
+    historyDelete: 'この履歴を削除',
 
     params: '実行内容',
     engine: 'エンジン',
