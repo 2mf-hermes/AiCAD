@@ -17,7 +17,7 @@ import (
 )
 
 // 建置時可用 -ldflags "-X main.version=1.2.3" 覆寫
-var version = "0.3.3"
+var version = "0.3.4"
 
 func appVersion() string { return version }
 
