@@ -164,6 +164,14 @@ export const zhHans: Dict = {
     resolvedPromptHint: '可全选复制，用于复现或排错',
   },
 
+  generationRetry: {
+    title: "图面生成失败",
+    savedHint: "已保留上次文字模型的内容。沿用可跳过文字模型，只重新生图；全部重来会按当前设置重新生成文字与图面。内容仅保留至关闭程序或切换项目。",
+    noSavedHint: "没有可沿用的文字模型内容，请重新生成。",
+    reuse: "沿用上次内容重新生图",
+    restart: "全部重新生成",
+  },
+
   status: {
     ready: (name) => `就绪 · ${name}`,
     noEngine: '尚未配置引擎',

@@ -166,6 +166,14 @@ export const en: Dict = {
     resolvedPromptHint: 'Select all to copy — useful for reproducing or debugging',
   },
 
+  generationRetry: {
+    title: "Image generation failed",
+    savedHint: "Your previous text-model output is available. Reuse it to retry only the image step, or start over with the current settings. Saved output lasts until you close the app or switch projects.",
+    noSavedHint: "No text-model output is available to reuse. Start a new generation.",
+    reuse: "Reuse text and retry image",
+    restart: "Generate everything again",
+  },
+
   status: {
     ready: (name) => `Ready · ${name}`,
     noEngine: 'No engine configured',

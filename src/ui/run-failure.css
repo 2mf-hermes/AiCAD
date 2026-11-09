@@ -1,0 +1,14 @@
+/* Match existing dialog tokens; stack long translated actions within the viewport. */
+.run-failure {
+  padding: 0;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.run-failure::backdrop {
+  background: rgba(5, 6, 8, .58);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+.run-failure__actions { flex-direction: column; }
+.run-failure__actions .btn { white-space: normal; height: auto; min-height: 36px; }
+.run-failure__error { overflow-wrap: anywhere; max-height: 8em; overflow-y: auto; }

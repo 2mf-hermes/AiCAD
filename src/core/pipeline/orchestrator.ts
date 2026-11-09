@@ -24,6 +24,7 @@ import type { Settings } from '../settings';
 import type { Artboard, DrawingIntent, DrawingTextLabel, MaskRegion } from '../types';
 import { createSafeId } from '../projectSafety';
 import { shouldOverlayLabels } from '../textOverlay';
+import { generationKey, type PreparedGeneration } from './draftCache';
 
 export interface RunProgress {
   stage: 'drafting' | 'refining' | 'drawing' | 'compositing';
@@ -34,6 +35,7 @@ interface RunDeps {
   settings: Settings;
   onProgress: (progress: RunProgress) => void;
   signal: AbortSignal;
+  onPrepared?: (prepared: PreparedGeneration) => void;
 }
 
 export interface ProviderAttempt {
@@ -84,7 +86,7 @@ export async function executeWithFallback<T>(
   throw new ProviderFallbackError(attempts);
 }
 
-async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<string> {
+async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<{ prompt: string; fromModel: boolean }> {
   const draft = buildPositivePrompt(intent);
   const selected = deps.settings.activeTextProvider;
   const refs = intent.references ?? [];
@@ -97,7 +99,7 @@ async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<stri
     try { textNotes += `\nReference file ${r.name}:\n${referenceText(r).slice(0, 4000)}\n`; } catch { /* skip unreadable */ }
   }
   const subject = `${intent.subject}\nCategory content: ${intent.categoryContent}${textNotes ? `\n${textNotes}` : ''}`;
-  if (selected === 'none') return draft;
+  if (selected === 'none') return { prompt: draft, fromModel: false };
   const eligible = preferredFirst(deps.settings.providers, selected);
   try {
     const { result } = await executeWithFallback(
@@ -108,15 +110,16 @@ async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<stri
           { mode: 'text', input: { draft, subject, textLanguage: intent.textLanguage, images: images.length ? images : undefined } },
           signal,
         );
-        if (typeof output !== 'string') throw new ProviderError('精煉回應格式無效', config.id, undefined, undefined, 'invalid-response');
+        if (typeof output !== 'string' || !output.trim()) throw new ProviderError('精煉回應格式無效', config.id, undefined, undefined, 'invalid-response');
         return output;
       },
       deps.signal,
       (config, attempt) => deps.onProgress({ stage: 'refining', note: `${config.name} 正在精煉幾何描述${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
     );
-    return draft.replace(/^Subject: .*$/m, `Subject: ${result.replace(/\s+/g, ' ').trim()}`);
+    return { prompt: draft.replace(/^Subject: .*$/m, `Subject: ${result.replace(/\s+/g, ' ').trim()}`), fromModel: true };
   } catch {
-    return draft;
+    deps.signal.throwIfAborted();
+    return { prompt: draft, fromModel: false };
   }
 }
 
@@ -170,6 +173,7 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSv
     const svg = normalizeDraftSvg(result);
     return svg ? { svg, summary: summarizeDraft(svg), labels: shouldOverlayLabels(intent) ? extractTextLabels(result) : [] } : null;
   } catch {
+    deps.signal.throwIfAborted();
     return null;
   }
 }
@@ -186,13 +190,27 @@ async function tryRenderDraft(
   }
 }
 
-export async function generate(intent: DrawingIntent, deps: RunDeps): Promise<Artboard> {
+export async function generate(intent: DrawingIntent, deps: RunDeps, options: { reuse?: PreparedGeneration } = {}): Promise<Artboard> {
+  deps.signal.throwIfAborted();
+  // Freeze the request so edits made during generation cannot change its meaning.
+  intent = structuredClone(intent);
+  const key = generationKey(intent, deps.settings.canvas);
+  const reused = options.reuse;
+  if (reused && reused.key !== key) {
+    throw new ProviderError('圖面內容已變更，請全部重新產生', 'pipeline', undefined, undefined, 'configuration');
+  }
   // 先讓文字模型擬草稿；失敗就當作沒有草稿，絕不因此中斷生成。
-  const draft = await buildDraft(intent, deps);
+  const draft = reused ? structuredClone(reused.draft) : await buildDraft(intent, deps);
   /* 草稿成功時就不再跑一次「精煉主體描述」：草稿已經把實際幾何、視圖擺位寫成座標，
      比一段文字描述資訊量更高，再叫一次文字模型只是多一次延遲與費用。
      草稿失敗時才走原本的精煉路徑，維持既有行為不變。 */
-  const basePrompt = draft ? buildPositivePrompt(intent) : await resolvePrompt(intent, deps);
+  const resolved = reused ? { prompt: reused.basePrompt, fromModel: true }
+    : draft ? { prompt: buildPositivePrompt(intent), fromModel: true }
+    : await resolvePrompt(intent, deps);
+  const basePrompt = resolved.prompt;
+  deps.signal.throwIfAborted();
+  // Publish before image generation: errors/timeouts must not lose successful text work.
+  if (resolved.fromModel) deps.onPrepared?.({ key, draft, basePrompt });
   const draftImage = draft ? await tryRenderDraft(draft, intent) : undefined;
   // 兩種版本並存：能不能附圖要等抽到實際引擎才知道，但兩個字串都得先備好。
   const textualPrompt = draft ? mergeDraftIntoPrompt(basePrompt, draft, false) : basePrompt;
@@ -238,7 +256,9 @@ export async function generate(intent: DrawingIntent, deps: RunDeps): Promise<Ar
     deps.signal,
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在繪製圖面${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
-  return artboard(result, intent, prompt, config, draft?.labels);
+  deps.signal.throwIfAborted();
+  const usedPrompt = draftImage && config.capabilities.imageInpaint ? prompt : textualPrompt;
+  return artboard(result, intent, usedPrompt, config, draft?.labels);
 }
 
 export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDeps): Promise<Artboard> {

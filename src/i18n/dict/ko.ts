@@ -165,6 +165,14 @@ export const ko: Dict = {
     resolvedPromptHint: '전체 선택해 복사할 수 있습니다(재현 및 문제 확인용)',
   },
 
+  generationRetry: {
+    title: "이미지 생성 실패",
+    savedHint: "이전 텍스트 모델의 결과가 보관되어 있습니다. 재사용하면 이미지만 다시 생성하며, 처음부터 시작하면 현재 설정으로 텍스트와 이미지를 모두 생성합니다. 앱을 닫거나 프로젝트를 전환하면 보관된 내용이 삭제됩니다.",
+    noSavedHint: "재사용할 텍스트 모델의 결과가 없습니다. 새로 생성하세요.",
+    reuse: "이전 내용으로 이미지 재생성",
+    restart: "처음부터 모두 생성",
+  },
+
   status: {
     ready: (name) => `준비 완료 · ${name}`,
     noEngine: '엔진 미설정',

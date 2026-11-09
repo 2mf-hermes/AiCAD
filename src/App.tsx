@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { generate, inpaint, type RunProgress } from './core/pipeline/orchestrator';
+import { DraftCache, generationKey, type PreparedGeneration } from './core/pipeline/draftCache';
+import { RunFailureDialog } from './ui/RunFailureDialog';
 import { isTimeout, TimeoutError } from './core/net/transport';
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from './core/projects';
 import { ProviderError, type ProviderConfig, type ProviderId } from './core/providers/types';
@@ -184,6 +186,17 @@ function Workspace({
   const [cadWorkspace, setCadWorkspace] = useState(initialCadWorkspaceRef.current);
   const [run, setRun] = useState<RunState>({ kind: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
+  const draftCacheRef = useRef(new DraftCache());
+  const [generationFailure, setGenerationFailure] = useState<{ key: string; message: string } | null>(null);
+  const [failureOpen, setFailureOpen] = useState(false);
+  const retryKey = useMemo(() => generationKey(intent, settings.canvas), [intent, settings.canvas.width, settings.canvas.height]);
+
+  // Drawing changes invalidate text work; changing an engine or timeout does not.
+  useEffect(() => {
+    draftCacheRef.current.forget();
+    setGenerationFailure(null);
+    setFailureOpen(false);
+  }, [retryKey]);
   const savedSnapshotRef = useRef(JSON.stringify({ intent: initialIntentRef.current, history: [], currentId: null, masks: [], showGrid: true, cadWorkspace: initialCadWorkspaceRef.current }));
   const closeAfterSaveRef = useRef(false);
 
@@ -221,6 +234,9 @@ function Workspace({
   }, [busy]);
 
   const confirmNewProject = useCallback(() => {
+    draftCacheRef.current.forget();
+    setGenerationFailure(null);
+    setFailureOpen(false);
     const nextIntent = createDefaultIntent();
     setProjectId(null);
     setProjectName('');
@@ -301,6 +317,9 @@ function Workspace({
     loadingProjectRef.current = true;
     try {
       const project = await loadProject(id);
+      draftCacheRef.current.forget();
+      setGenerationFailure(null);
+      setFailureOpen(false);
       setProjectId(project.id);
       setProjectName(project.name);
       setIntent(project.intent);
@@ -387,8 +406,17 @@ function Workspace({
   );
 
   const execute = useCallback(
-    async (task: 'generate' | 'inpaint') => {
-      abortRef.current?.abort();
+    async (task: 'generate' | 'inpaint', reuseText = false) => {
+      // Prevent double-clicks from starting overlapping paid requests.
+      if (abortRef.current) return;
+      const key = generationKey(intent, settings.canvas);
+      const reused = task === 'generate' && reuseText ? draftCacheRef.current.peek(key) : undefined;
+      if (reuseText && !reused) return;
+      setFailureOpen(false);
+      if (task === 'generate') {
+        setGenerationFailure(null);
+        if (!reused) draftCacheRef.current.forget();
+      }
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
@@ -407,6 +435,11 @@ function Workspace({
       const deps = {
         settings,
         signal: ctrl.signal,
+        onPrepared: (prepared: PreparedGeneration) => {
+          if (task === 'generate' && abortRef.current === ctrl && !ctrl.signal.aborted) {
+            draftCacheRef.current.remember(prepared);
+          }
+        },
         onProgress: (progress: RunProgress) =>
           setRun({ kind: 'busy', progress, startedAt, limitSec }),
       };
@@ -414,9 +447,14 @@ function Workspace({
       try {
         const board =
           task === 'generate'
-            ? await generate(intent, deps)
+            ? await generate(intent, deps, { reuse: reused })
             : await inpaint(current as Artboard, masks, deps);
 
+        ctrl.signal.throwIfAborted();
+        if (task === 'generate') {
+          draftCacheRef.current.forget();
+          setGenerationFailure(null);
+        }
         setHistory((h) => [board, ...h].slice(0, 40));
         setCurrentId(board.id);
         setMasks([]);
@@ -430,6 +468,12 @@ function Workspace({
         }
         // 逾時要說得非常清楚，並直接告訴使用者去哪裡調整 —— 這是先前「等很久
         // 卻什麼都沒發生」最需要的資訊。
+        if (task === 'generate') {
+          const message = isTimeout(e) || isTimeout(ctrl.signal.reason)
+            ? t.status.timedOut(limitSec) : e instanceof Error ? e.message : String(e);
+          setGenerationFailure({ key, message });
+          setFailureOpen(true);
+        }
         if (isTimeout(e) || isTimeout(ctrl.signal.reason)) {
           setRun({ kind: 'error', message: t.status.timedOut(limitSec) });
           return;
@@ -563,7 +607,10 @@ function Workspace({
             <IntentPanel intent={intent} onChange={setIntent} />
           </div>
           <div className="panel__foot">
-            <Button variant="primary" block disabled={!canGenerate} onClick={() => void execute('generate')}>
+            <Button variant="primary" block disabled={!canGenerate} onClick={() => {
+              if (generationFailure?.key === retryKey) setFailureOpen(true);
+              else void execute('generate');
+            }}>
               <IconGenerate size={16} />
               {busy ? t.left.generating : t.left.generate}
             </Button>
@@ -808,6 +855,16 @@ function Workspace({
         </span>
       </footer>
 
+      {failureOpen && generationFailure && !busy && (
+        <RunFailureDialog
+          message={generationFailure.message}
+          canReuse={generationFailure.key === retryKey && !!draftCacheRef.current.peek(retryKey)}
+          canGenerate={canGenerate}
+          onClose={() => setFailureOpen(false)}
+          onReuse={() => void execute('generate', true)}
+          onRestart={() => void execute('generate')}
+        />
+      )}
       {settingsOpen && (
         <SettingsSheet
           settings={settings}

@@ -171,6 +171,14 @@ export const zhHant = {
     resolvedPromptHint: '可全選複製，用於重現或除錯',
   },
 
+  generationRetry: {
+    title: "圖面產生失敗",
+    savedHint: "已保留上次文字模型的內容。沿用可略過文字模型，只重新生圖；全部重來會依目前設定重新產生文字與圖面。內容僅保留至關閉程式或切換專案。",
+    noSavedHint: "沒有可沿用的文字模型內容，請重新產生。",
+    reuse: "沿用上次內容重新生圖",
+    restart: "全部重新產生",
+  },
+
   status: {
     ready: (name: string) => `就緒 · ${name}`,
     noEngine: '尚未設定引擎',
