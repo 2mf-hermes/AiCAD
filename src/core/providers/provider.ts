@@ -66,7 +66,17 @@ class AdapterProvider extends AIProvider {
 class CustomProvider extends AIProvider {
   async generate(request: ProviderRequest, signal: AbortSignal): Promise<ProviderResult> {
     const secret = await secrets().get(this.config.secretRef);
-    const url = authenticatedUrl(joinUrl(this.config.baseUrl, this.config.endpoint), this.config, secret);
+    // 文字／生圖／修圖各自可有獨立路徑，未設定時退回通用的 endpoint（舊設定行為不變）。
+    const perMode = request.mode === 'text'
+      ? this.config.textEndpoint
+      : request.mode === 'inpaint'
+        ? this.config.inpaintEndpoint
+        : this.config.imageEndpoint;
+    const url = authenticatedUrl(
+      joinUrl(this.config.baseUrl, (perMode ?? '').trim() || this.config.endpoint),
+      this.config,
+      secret,
+    );
     const body = buildCustomBody(this.config, request);
     let response: JsonRecord;
     try {

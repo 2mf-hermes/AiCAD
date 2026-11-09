@@ -42,8 +42,17 @@ function base(cfg: ProviderConfig, fallback: string): string {
   return trimSlash(cfg.baseUrl || fallback);
 }
 
+/** 依呼叫種類挑選對應的端點路徑（文字／生圖／修圖各自獨立）。
+    未設定時回傳空字串，由呼叫端退回通用的 `endpoint`，確保舊設定行為不變。 */
+function operationEndpoint(cfg: ProviderConfig, operation: string): string {
+  if (operation === 'chat/completions') return (cfg.textEndpoint ?? '').trim();
+  if (operation === 'images/generations') return (cfg.imageEndpoint ?? '').trim();
+  if (operation === 'images/edits') return (cfg.inpaintEndpoint ?? '').trim();
+  return '';
+}
+
 function endpoint(cfg: ProviderConfig, fallback: string, operation: string, secret: string): string {
-  const configured = cfg.endpoint.trim();
+  const configured = operationEndpoint(cfg, operation) || cfg.endpoint.trim();
   let url: string;
   if (!configured) url = `${base(cfg, fallback)}/${operation}`;
   else {

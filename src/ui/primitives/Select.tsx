@@ -124,6 +124,19 @@ export function Select<T extends string>({
     if (refocus) triggerRef.current?.focus();
   }, []);
 
+  const handleBlur = useCallback(() => {
+    setTimeout(() => {
+      if (!open) return;
+      const active = document.activeElement;
+      if (
+        triggerRef.current && !triggerRef.current.contains(active) &&
+        panelRef.current && !panelRef.current.contains(active)
+      ) {
+        close(false);
+      }
+    }, 0);
+  }, [open, close]);
+
   const openList = useCallback(
     (index: number) => {
       if (disabled) return;
@@ -275,6 +288,7 @@ export function Select<T extends string>({
         disabled={disabled}
         data-open={open}
         onKeyDown={onKeyDown}
+        onBlur={handleBlur}
         onClick={() => (open ? close() : openList(selectedIndex >= 0 ? selectedIndex : step(-1, 1)))}
       >
         <span className="xselect__value" data-placeholder={!selected}>
@@ -301,6 +315,7 @@ export function Select<T extends string>({
         <div
           ref={panelRef}
           className="xselect__panel"
+          onBlur={handleBlur}
           data-drop={rect.drop}
           style={{
             left: rect.left,

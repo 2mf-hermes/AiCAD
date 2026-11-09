@@ -128,7 +128,10 @@ export const zhHant = {
     fallbackEnabled: '加入備用接續', fallbackEnabledHint: '允許此 Provider 在其他引擎失敗後依優先序接手',
     textFallbackEnabled: '文字模型備用', textFallbackEnabledHint: '允許文字模型接手提示語精煉',
     imageFallbackEnabled: '生圖模型備用', imageFallbackEnabledHint: '允許影像模型接手生圖與局部重繪',
-    endpoint: 'Endpoint', endpointHint: '相對路徑或完整 URL',
+    endpoint: 'Endpoint', endpointHint: '相對路徑或完整 URL', endpointPreset: '參考端點',
+    endpointText: '文字模型端點',
+    endpointImage: '生圖端點',
+    endpointInpaint: '局部重繪端點',
     retryCount: '重試次數', retryHint: '切換到下一組 Provider 前重試 0 至 5 次',
     authentication: '驗證方式', authHint: '憑證只保存在 Windows DPAPI，不寫入一般設定檔',
     authNone: '無', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
@@ -181,6 +184,8 @@ export const zhHant = {
 
   status: {
     ready: (name: string) => `就緒 · ${name}`,
+    readyText: (name: string) => `文字就緒 · ${name}`,
+    readyImage: (name: string) => `生圖就緒 · ${name}`,
     noEngine: '尚未設定引擎',
     preparing: '準備中',
     maskMode: '選區模式',
@@ -260,6 +265,12 @@ export const zhHant = {
     timeout: '逾時（秒）',
     timeoutLocalHint: '本機推論建議 300 以上',
     timeoutCloudHint: '建議 60–120',
+    textTimeout: '文字模型逾時（秒）',
+    imageTimeout: '生圖模型逾時（秒）',
+    timeoutTextLocalHint: '本機推論建議 300 以上',
+    timeoutTextCloudHint: '建議 60–120',
+    timeoutImageLocalHint: '本機推論建議 300 以上',
+    timeoutImageCloudHint: '建議 60–180',
 
     probe: '測試連線',
     probing: '測試中…',

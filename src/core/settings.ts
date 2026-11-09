@@ -113,6 +113,8 @@ function normalizeProvider(item: Record<string, unknown>, defaults: ProviderConf
   const type = isProviderType(item.type) ? item.type : fallback.type;
   const id = safeId(str(item.id, `provider-${index + 1}`));
   const timeout = number(item.timeout, number(item.timeoutSec, fallback.timeout, 5, 3600), 5, 3600);
+  const textTimeout = number(item.textTimeout, number(item.textTimeoutSec, timeout, 5, 3600), 5, 3600);
+  const imageTimeout = number(item.imageTimeout, number(item.imageTimeoutSec, timeout, 5, 3600), 5, 3600);
   const capabilities = isRecord(item.capabilities) ? {
     text: bool(item.capabilities.text, fallback.capabilities.text),
     imageGenerate: bool(item.capabilities.imageGenerate, fallback.capabilities.imageGenerate),
@@ -128,13 +130,19 @@ function normalizeProvider(item: Record<string, unknown>, defaults: ProviderConf
   return {
     ...fallback, id, type, name, label: name,
     enabled: bool(item.enabled, fallback.enabled), baseUrl: str(item.baseUrl, fallback.baseUrl),
-    endpoint: str(item.endpoint, fallback.endpoint), secretRef: str(item.secretRef, `aicad.secret.${id}`),
+    endpoint: str(item.endpoint, fallback.endpoint),
+    textEndpoint: str(item.textEndpoint, str(item.endpoint, fallback.endpoint)),
+    imageEndpoint: str(item.imageEndpoint, str(item.endpoint, fallback.endpoint)),
+    inpaintEndpoint: str(item.inpaintEndpoint, str(item.endpoint, fallback.endpoint)),
+    secretRef: str(item.secretRef, `aicad.secret.${id}`),
     model: legacyModel, textModel, visionModel, imageModel, inpaintModel,
     fallbackEnabled: bool(item.fallbackEnabled, true),
     textFallbackEnabled: bool(item.textFallbackEnabled, true),
     imageFallbackEnabled: bool(item.imageFallbackEnabled, true),
     priority: number(item.priority, index + 1, 1, 999), timeout, timeoutSec: timeout,
-    retryCount: number(item.retryCount, fallback.retryCount, 0, 5), headers: stringMap(item.headers),
+    textTimeout, imageTimeout,
+    retryCount: number(item.retryCount, fallback.retryCount, 0, 5),
+    headers: stringMap(item.headers),
     requestFormat: isRecord(item.requestFormat) ? {
       type: isRequestType(item.requestFormat.type) ? item.requestFormat.type : fallback.requestFormat.type,
       template: str(item.requestFormat.template, ''),

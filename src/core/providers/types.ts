@@ -57,6 +57,12 @@ export interface ProviderConfig {
   enabled: boolean;
   baseUrl: string;
   endpoint: string;
+  /** per-provider-type endpoint path override — text model (prompt refinement) */
+  textEndpoint: string;
+  /** per-provider-type endpoint path override — image generation */
+  imageEndpoint: string;
+  /** per-provider-type endpoint path override — inpainting */
+  inpaintEndpoint: string;
   secretRef: string;
   model: string;
   /** 主文字模型：精煉、文字生成。 */
@@ -71,6 +77,7 @@ export interface ProviderConfig {
   textFallbackEnabled: boolean;
   imageFallbackEnabled: boolean;
   priority: number;
+  /** whole-run safety timeout (back-compat alias) */
   timeout: number;
   retryCount: number;
   headers: Record<string, string>;
@@ -78,6 +85,10 @@ export interface ProviderConfig {
   responseFormat: ProviderResponseFormat;
   authentication: ProviderAuthentication;
   capabilities: ProviderCapabilities;
+  /** per-model-type timeout: text model (prompt refinement) */
+  textTimeout: number;
+  /** per-model-type timeout: image model (generation/inpaint) */
+  imageTimeout: number;
 
   /** v2 compatibility aliases; normalized settings always populate these. */
   label: string;

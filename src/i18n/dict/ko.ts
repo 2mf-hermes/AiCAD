@@ -122,7 +122,10 @@ export const ko: Dict = {
     fallbackEnabled: '대체 연결에 참여', fallbackEnabledHint: '다른 엔진이 실패한 후 이 Provider가 우선순위에 따라 이어서 처리하도록 허용합니다',
     textFallbackEnabled: '텍스트 모델 대체', textFallbackEnabledHint: '텍스트 모델이 프롬프트 보정을 이어서 처리하도록 허용합니다',
     imageFallbackEnabled: '이미지 모델 대체', imageFallbackEnabledHint: '이미지 모델이 생성 및 부분 재작업을 이어서 처리하도록 허용합니다',
-    endpoint: 'Endpoint', endpointHint: '상대 경로 또는 전체 URL',
+    endpoint: 'Endpoint', endpointHint: '상대 경로 또는 전체 URL', endpointPreset: '참본에도프로행',
+    endpointText: '텍스트 모델 엔드포인트',
+    endpointImage: '이미지 생성 엔드포인트',
+    endpointInpaint: '인페인팅 엔드포인트',
     retryCount: '재시도 횟수', retryHint: '다음 Provider로 전환하기 전에 0~5회 재시도합니다',
     authentication: '인증 방식', authHint: '인증 정보는 Windows DPAPI에만 저장되며 설정 파일에는 기록되지 않습니다',
     authNone: '없음', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
@@ -175,6 +178,8 @@ export const ko: Dict = {
 
   status: {
     ready: (name) => `준비 완료 · ${name}`,
+    readyText: (name) => `텍스트 준비 완료 · ${name}`,
+    readyImage: (name) => `이미지 준비 완료 · ${name}`,
     noEngine: '엔진 미설정',
     preparing: '준비 중',
     maskMode: '영역 선택',
@@ -254,6 +259,12 @@ export const ko: Dict = {
     timeout: '제한 시간(초)',
     timeoutLocalHint: '로컬 추론에는 300 이상을 권장합니다',
     timeoutCloudHint: '60–120 을 권장합니다',
+    textTimeout: '테버모델테보타방쉬',
+    imageTimeout: '이뽬모델테보타방쉬',
+    timeoutTextLocalHint: '로본처리: 300은의구가광',
+    timeoutTextCloudHint: '60–120구가광',
+    timeoutImageLocalHint: '로본처리: 300은의구가광',
+    timeoutImageCloudHint: '60–180구가광',
 
     probe: '연결 테스트',
     probing: '테스트 중…',

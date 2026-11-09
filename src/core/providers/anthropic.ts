@@ -39,7 +39,11 @@ export const anthropicAdapter: ProviderAdapter = {
   },
 
   async probe(cfg, secret, signal) {
-    const url = `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}/messages`;
+    // 文字模型可指定獨立路徑；未設定則沿用既有的 /messages。
+    const path = (cfg.textEndpoint ?? '').trim() || '/messages';
+    const url = /^https?:\/\//i.test(path)
+      ? path
+      : `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}${path.startsWith('/') ? path : `/${path}`}`;
     try {
       await postJson<MessagesResponse>(
         url,
@@ -59,7 +63,11 @@ export const anthropicAdapter: ProviderAdapter = {
   },
 
   async refinePrompt(cfg, secret, input, signal) {
-    const url = `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}/messages`;
+    // 文字模型可指定獨立路徑；未設定則沿用既有的 /messages。
+    const path = (cfg.textEndpoint ?? '').trim() || '/messages';
+    const url = /^https?:\/\//i.test(path)
+      ? path
+      : `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}${path.startsWith('/') ? path : `/${path}`}`;
     try {
       const res = await postJson<MessagesResponse>(
         url,

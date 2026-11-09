@@ -214,3 +214,36 @@
   font-family: var(--font-mono);
   font-size: var(--fs-caption);
 }
+
+.endpoint__field + .endpoint__field {
+  margin-top: var(--sp-3);
+}
+.endpoint__row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-2);
+}
+.endpoint__row > .input {
+  flex: 1;
+  min-width: 0;
+}
+.endpoint__presets {
+  margin-top: var(--sp-2);
+  border: 1px solid var(--line-hairline);
+  border-radius: var(--r-sm);
+  background: var(--bg-base);
+  padding: var(--sp-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.endpoint__presets > button.input {
+  flex: 0 0 auto;
+  font-size: var(--fs-caption);
+  padding: 2px var(--sp-2);
+  text-align: left;
+  white-space: nowrap;
+}
+.endpoint__presets > button.input:hover {
+  background: var(--bg-hover);
+}

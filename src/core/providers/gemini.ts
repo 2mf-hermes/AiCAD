@@ -23,8 +23,13 @@ function headers(cfg: ProviderConfig, secret: string): Record<string, string> {
   return { 'x-goog-api-key': secret, ...cfg.headers };
 }
 
-function endpoint(cfg: ProviderConfig, model: string): string {
-  return `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}/models/${model}:generateContent`;
+/** Gemini 端點固定為 /models/{model}:generateContent；若使用者另外指定了
+    文字／生圖／修圖路徑，則改用該路徑（同樣支援 {model} 佔位符）。 */
+function endpoint(cfg: ProviderConfig, model: string, kind: 'text' | 'image'): string {
+  const override = (kind === 'text' ? cfg.textEndpoint : cfg.imageEndpoint ?? '').trim();
+  const path = (override || `/models/${model}:generateContent`).replace(/\{model\}/g, model);
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 export const geminiAdapter: ProviderAdapter = {
@@ -41,7 +46,7 @@ export const geminiAdapter: ProviderAdapter = {
   async probe(cfg, secret, signal) {
     try {
       await postJson<GenerateContentResponse>(
-        endpoint(cfg, cfg.textModel || 'gemini-2.5-flash'),
+        endpoint(cfg, cfg.textModel || 'gemini-2.5-flash', 'text'),
         { contents: [{ parts: [{ text: 'ping' }] }] },
         headers(cfg, secret),
         cfg.timeoutSec * 1000,
@@ -56,7 +61,7 @@ export const geminiAdapter: ProviderAdapter = {
   async refinePrompt(cfg, secret, input, signal) {
     try {
       const res = await postJson<GenerateContentResponse>(
-        endpoint(cfg, cfg.textModel || 'gemini-2.5-flash'),
+        endpoint(cfg, cfg.textModel || 'gemini-2.5-flash', 'text'),
         {
           systemInstruction: { parts: [{ text: systemInstructionFor(input) }] },
           contents: [
@@ -84,7 +89,7 @@ export const geminiAdapter: ProviderAdapter = {
   async generateImage(cfg, secret, input, signal) {
     try {
       const res = await postJson<GenerateContentResponse>(
-        endpoint(cfg, cfg.imageModel || 'gemini-2.5-flash-image'),
+        endpoint(cfg, cfg.imageModel || 'gemini-2.5-flash-image', 'image'),
         {
           contents: [
             {
@@ -113,7 +118,7 @@ export const geminiAdapter: ProviderAdapter = {
     // 由模型自行推論編輯範圍；沒有專用的 mask 參數。
     try {
       const res = await postJson<GenerateContentResponse>(
-        endpoint(cfg, cfg.imageModel || 'gemini-2.5-flash-image'),
+        endpoint(cfg, cfg.imageModel || 'gemini-2.5-flash-image', 'image'),
         {
           contents: [
             {

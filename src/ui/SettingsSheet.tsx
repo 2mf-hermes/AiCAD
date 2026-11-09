@@ -15,7 +15,7 @@
    字串全部走 i18n；這個檔案裡不該再出現任何寫死的顯示文字。
    ========================================================================== */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatDateTime, useLocale, useT } from '../i18n';
 import { LOCALES, LOCALE_LABEL, type Locale } from '../i18n/locales';
 import { hostVersion, isDesktop } from '../core/host';
@@ -306,11 +306,71 @@ function ModelsPane({
   const [models, setModels] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ProviderConfig | null>(null);
+  const [openEndpoint, setOpenEndpoint] =
+    useState<'textEndpoint' | 'imageEndpoint' | 'inpaintEndpoint' | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const savedCfg = (settings.providers.find((provider) => provider.id === selected) ?? settings.providers[0])!;
   const cfg = draft ?? savedCfg;
   const adapter = ADAPTERS.find((item) => item.id === cfg.legacyAdapterId)!;
+
+  // 文字／生圖／修圖各自一組參考路徑，避免在生圖欄位看到 chat 端點這種不對題的建議。
+  const endpointPresets = useMemo(() => {
+    switch (cfg.type) {
+      case 'openai': return {
+        text: ['/v1/chat/completions'],
+        image: ['/v1/images/generations'],
+        inpaint: ['/v1/images/edits'],
+      };
+      case 'anthropic': return {
+        text: ['/v1/messages'],
+        image: [],
+        inpaint: [],
+      };
+      case 'gemini': return {
+        text: ['/v1beta/models/{model}:generateContent'],
+        image: ['/v1beta/models/{model}:generateContent'],
+        inpaint: ['/v1beta/models/{model}:generateContent'],
+      };
+      case 'openai-compatible':
+      case 'custom': return {
+        text: ['/v1/chat/completions'],
+        image: ['/v1/images/generations'],
+        inpaint: ['/v1/images/edits'],
+      };
+      case 'local': return {
+        text: ['http://127.0.0.1:11434/v1/chat/completions', '/v1/chat/completions'],
+        image: [],
+        inpaint: [],
+      };
+      default: return { text: [], image: [], inpaint: [] };
+    }
+  }, [cfg.type]);
+
+  // 三個端點欄位的資料來源，維持渲染順序：文字 → 生圖 → 修圖。
+  const endpointFields = useMemo(() => [
+    {
+      patchKey: 'textEndpoint' as const,
+      label: t.provider.endpointText,
+      value: cfg.textEndpoint,
+      placeholder: '/v1/chat/completions',
+      presets: endpointPresets.text,
+    },
+    {
+      patchKey: 'imageEndpoint' as const,
+      label: t.provider.endpointImage,
+      value: cfg.imageEndpoint,
+      placeholder: '/v1/images/generations',
+      presets: endpointPresets.image,
+    },
+    {
+      patchKey: 'inpaintEndpoint' as const,
+      label: t.provider.endpointInpaint,
+      value: cfg.inpaintEndpoint,
+      placeholder: '/v1/images/edits',
+      presets: endpointPresets.inpaint,
+    },
+  ], [cfg.textEndpoint, cfg.imageEndpoint, cfg.inpaintEndpoint, endpointPresets, t.provider]);
 
   useEffect(() => {
     if (!settings.providers.some((provider) => provider.id === selected)) setSelected(settings.providers[0]?.id ?? '');
@@ -392,6 +452,8 @@ function ModelsPane({
     next.priority = settings.providers.length + 1;
     onChange({ ...settings, providers: [...settings.providers, next] });
     setSelected(id);
+    setDraft(structuredClone(next));
+    setEditing(true);
   }, [onChange, settings]);
 
   const changeProviderType = useCallback((type: ProviderType) => {
@@ -640,9 +702,53 @@ function ModelsPane({
           </div>
 
           <div className="provform__full">
-            <Field label={t.provider.endpoint} hint={t.provider.endpointHint}>
-              <input className="input" spellCheck={false} disabled={!editing} value={cfg.endpoint} placeholder="/chat/completions" onChange={(e) => patch({ endpoint: e.target.value.trim() })} />
-            </Field>
+            {endpointFields.map((field) => (
+              <div
+                key={field.patchKey}
+                className="endpoint__field"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpenEndpoint(null);
+                }}
+              >
+                <Field label={field.label} hint={t.provider.endpointHint}>
+                  <div className="endpoint__row">
+                    <input
+                      className="input"
+                      spellCheck={false}
+                      disabled={!editing}
+                      value={field.value}
+                      placeholder={field.placeholder}
+                      onChange={(e) => patch({ [field.patchKey]: e.target.value.trim() } as Partial<ProviderConfig>)}
+                    />
+                    <Button
+                      variant="secondary"
+                      disabled={!editing || !field.presets.length}
+                      onClick={() => setOpenEndpoint(openEndpoint === field.patchKey ? null : field.patchKey)}
+                      aria-label={t.provider.endpointPreset}
+                    >
+                      ▾
+                    </Button>
+                  </div>
+                  {openEndpoint === field.patchKey && (
+                    <div className="endpoint__presets">
+                      {field.presets.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          className="input"
+                          onClick={() => {
+                            patch({ [field.patchKey]: preset } as Partial<ProviderConfig>);
+                            setOpenEndpoint(null);
+                          }}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Field>
+              </div>
+            ))}
           </div>
 
           {cfg.type !== 'local' && (
@@ -719,8 +825,8 @@ function ModelsPane({
           </Field>
 
           <Field
-            label={t.settings.timeout}
-            hint={cfg.type === 'local' ? t.settings.timeoutLocalHint : t.settings.timeoutCloudHint}
+            label={t.settings.textTimeout}
+            hint={cfg.type === 'local' ? t.settings.timeoutTextLocalHint : t.settings.timeoutTextCloudHint}
           >
             <input
               className="input num"
@@ -728,9 +834,34 @@ function ModelsPane({
               min={5}
               max={3600}
               disabled={!editing}
-              value={cfg.timeout}
+              value={cfg.textTimeout}
               onChange={(e) =>
-                patch({ timeout: Math.max(5, Math.min(3600, Number(e.target.value) || 90)), timeoutSec: Math.max(5, Math.min(3600, Number(e.target.value) || 90)) })
+                patch({
+                  textTimeout: Math.max(5, Math.min(3600, Number(e.target.value) || 90)),
+                  timeout: Math.max(5, Math.min(3600, Number(e.target.value) || 90)),
+                  timeoutSec: Math.max(5, Math.min(3600, Number(e.target.value) || 90)),
+                })
+              }
+            />
+          </Field>
+
+          <Field
+            label={t.settings.imageTimeout}
+            hint={cfg.type === 'local' ? t.settings.timeoutImageLocalHint : t.settings.timeoutImageCloudHint}
+          >
+            <input
+              className="input num"
+              type="number"
+              min={5}
+              max={3600}
+              disabled={!editing}
+              value={cfg.imageTimeout}
+              onChange={(e) =>
+                patch({
+                  imageTimeout: Math.max(5, Math.min(3600, Number(e.target.value) || 90)),
+                  timeout: Math.max(5, Math.min(3600, Number(e.target.value) || 90)),
+                  timeoutSec: Math.max(5, Math.min(3600, Number(e.target.value) || 90)),
+                })
               }
             />
           </Field>

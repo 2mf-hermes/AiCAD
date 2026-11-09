@@ -27,6 +27,40 @@ describe('settings migration', () => {
     expect(normalized.providers[0].imageModel).toBe('legacy-shared-model');
   });
 
+  it('carries a legacy shared endpoint into every per-type endpoint field', () => {
+    const defaults = createDefaultSettings();
+    const provider = {
+      ...defaults.providers[0],
+      endpoint: '/proxy/{operation}',
+      textEndpoint: undefined,
+      imageEndpoint: undefined,
+      inpaintEndpoint: undefined,
+    };
+    const normalized = normalizeSettings({ providers: [provider] }, defaults);
+    expect(normalized.providers[0]).toMatchObject({
+      endpoint: '/proxy/{operation}',
+      textEndpoint: '/proxy/{operation}',
+      imageEndpoint: '/proxy/{operation}',
+      inpaintEndpoint: '/proxy/{operation}',
+    });
+  });
+
+  it('keeps explicitly configured per-type endpoints', () => {
+    const defaults = createDefaultSettings();
+    const provider = {
+      ...defaults.providers[0],
+      endpoint: '/proxy/{operation}',
+      textEndpoint: 'https://text.example/v1/chat/completions',
+      imageEndpoint: '/custom/images',
+      inpaintEndpoint: '',
+    };
+    const normalized = normalizeSettings({ providers: [provider] }, defaults);
+    expect(normalized.providers[0]).toMatchObject({
+      textEndpoint: 'https://text.example/v1/chat/completions',
+      imageEndpoint: '/custom/images',
+    });
+  });
+
   it('restores defaults when a v3 provider array is empty', () => {
     const normalized = normalizeSettings({ version: 3, providers: [] }, createDefaultSettings());
     expect(normalized.providers.length).toBeGreaterThan(0);

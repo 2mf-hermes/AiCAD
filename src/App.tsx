@@ -405,6 +405,27 @@ function Workspace({
     [settings.providers],
   );
 
+  // 文字模型與生圖模型可能指向不同供應商；下方狀態列要分別顯示兩邊的就緒來源。
+  const activeTextName = settings.activeTextProvider === 'none'
+    ? undefined
+    : settings.providers.find((provider) => provider.id === settings.activeTextProvider)?.name ?? enabledText[0]?.name;
+  const activeImageName = settings.providers.find((provider) => provider.id === settings.activeImageProvider)?.name
+    ?? enabledImage[0]?.name;
+
+  const readyLabel = useMemo(() => {
+    // 兩邊都設定且不同供應商 → 分開標示，避免使用者誤判實際生效的引擎。
+    if (activeTextName && activeImageName && activeTextName !== activeImageName) {
+      return `${t.status.readyText(activeTextName)} \u00b7 ${t.status.readyImage(activeImageName)}`;
+    }
+    if (activeImageName) {
+      return activeImageName === activeTextName
+        ? t.status.ready(activeImageName)
+        : t.status.readyImage(activeImageName);
+    }
+    if (activeTextName) return t.status.readyText(activeTextName);
+    return t.status.noEngine;
+  }, [activeTextName, activeImageName, t.status]);
+
   const execute = useCallback(
     async (task: 'generate' | 'inpaint', reuseText = false) => {
       // Prevent double-clicks from starting overlapping paid requests.
@@ -840,14 +861,12 @@ function Workspace({
 
       <footer className="statusbar">
         <span className="statusbar__group">
-          <Dot state={busy ? 'busy' : run.kind === 'error' ? 'danger' : enabledImage.length ? 'ok' : 'warn'} />
+          <Dot state={busy ? 'busy' : run.kind === 'error' ? 'danger' : enabledImage.length || enabledText.length ? 'ok' : 'warn'} />
           {busy
             ? `${run.progress.note} · ${t.status.elapsed(elapsedSec, run.limitSec)}`
             : run.kind === 'error'
               ? `${run.message}${run.hint ? ` — ${run.hint}` : ''}`
-              : enabledImage.length
-                ? t.status.ready(settings.providers.find((provider) => provider.id === settings.activeImageProvider)?.name ?? enabledImage[0].name)
-                : t.status.noEngine}
+              : readyLabel}
         </span>
         <div className="statusbar__spacer" />
         <span className="statusbar__group num">

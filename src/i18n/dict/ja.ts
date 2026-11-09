@@ -122,7 +122,10 @@ export const ja: Dict = {
     fallbackEnabled: 'フォールバックに参加', fallbackEnabledHint: '他のエンジンが失敗した後、この Provider が優先度順に引き継げるようにします',
     textFallbackEnabled: 'テキストモデルのフォールバック', textFallbackEnabledHint: 'テキストモデルがプロンプト補正を引き継げるようにします',
     imageFallbackEnabled: '画像モデルのフォールバック', imageFallbackEnabledHint: '画像モデルが生成と再描画を引き継げるようにします',
-    endpoint: 'Endpoint', endpointHint: '相対パスまたは完全な URL',
+    endpoint: 'Endpoint', endpointHint: '相対パスまたは完全な URL', endpointPreset: 'プレセットエンドポイント',
+    endpointText: 'テキストモデルエンドポイント',
+    endpointImage: '画像生成エンドポイント',
+    endpointInpaint: 'インペイントエンドポイント',
     retryCount: '再試行回数', retryHint: '次の Provider に切り替える前に 0〜5 回再試行します',
     authentication: '認証方式', authHint: '認証情報は Windows DPAPI のみに保存され、設定ファイルには書き込みません',
     authNone: 'なし', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
@@ -175,6 +178,8 @@ export const ja: Dict = {
 
   status: {
     ready: (name) => `準備完了 · ${name}`,
+    readyText: (name) => `テキスト準備完了 · ${name}`,
+    readyImage: (name) => `画像準備完了 · ${name}`,
     noEngine: 'エンジン未設定',
     preparing: '準備中',
     maskMode: '範囲選択',
@@ -254,6 +259,12 @@ export const ja: Dict = {
     timeout: 'タイムアウト（秒）',
     timeoutLocalHint: 'ローカル推論では 300 以上を推奨します',
     timeoutCloudHint: '60〜120 を推奨します',
+    textTimeout: 'テ\x78タクスモデルタイマウト（秒）',
+    imageTimeout: '画像生成模型タイマウト（秒）',
+    timeoutTextLocalHint: 'ロカル推試: 300 以上推始',
+    timeoutTextCloudHint: '60–120 推始',
+    timeoutImageLocalHint: 'ロカル推試: 300 以上推始',
+    timeoutImageCloudHint: '60–180 推始',
 
     probe: '接続テスト',
     probing: 'テスト中…',

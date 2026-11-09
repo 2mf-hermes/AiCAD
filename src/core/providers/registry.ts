@@ -86,6 +86,9 @@ export function createDefaultConfig(id: LegacyProviderId, instanceId: string = i
     label: a.displayName,
     baseUrl: a.defaults.baseUrl,
     endpoint: '',
+    textEndpoint: '',
+    imageEndpoint: '',
+    inpaintEndpoint: '',
     secretRef: `aicad.secret.${instanceId}`,
     model: a.defaults.imageModel || a.defaults.textModel,
     textModel: a.defaults.textModel,
@@ -97,7 +100,9 @@ export function createDefaultConfig(id: LegacyProviderId, instanceId: string = i
     imageFallbackEnabled: true,
     headers: {},
     priority: ADAPTERS.findIndex((candidate) => candidate.id === id) + 1,
-    timeout: a.isLocal ? 300 : 90,
+    timeout: a.isLocal ? 300 : 90,               // whole-run back-compat alias
+    textTimeout: a.isLocal ? 300 : 90,           // per-model: text
+    imageTimeout: a.isLocal ? 300 : 90,          // per-model: image
     retryCount: 1,
     requestFormat: {
       type: id === 'anthropic' ? 'anthropic' : id === 'gemini' ? 'gemini' : id === 'sd-webui' ? 'sd-webui' : 'openai',

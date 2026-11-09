@@ -121,7 +121,10 @@ export const zhHans: Dict = {
     fallbackEnabled: '加入备用接续', fallbackEnabledHint: '允许此 Provider 在其他引擎失败后依优先级接手',
     textFallbackEnabled: '文字模型备用', textFallbackEnabledHint: '允许文字模型接手提示词精炼',
     imageFallbackEnabled: '生图模型备用', imageFallbackEnabledHint: '允许图像模型接手生图与局部重绘',
-    endpoint: 'Endpoint', endpointHint: '相对路径或完整 URL',
+    endpoint: 'Endpoint', endpointHint: '相对路径或完整 URL', endpointPreset: '參考端点',
+    endpointText: '文字模型端点',
+    endpointImage: '生图端点',
+    endpointInpaint: '局部重绘端点',
     retryCount: '重试次数', retryHint: '切换到下一组 Provider 前重试 0 至 5 次',
     authentication: '验证方式', authHint: '凭证只保存在 Windows DPAPI，不写入普通设置文件',
     authNone: '无', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
@@ -174,6 +177,8 @@ export const zhHans: Dict = {
 
   status: {
     ready: (name) => `就绪 · ${name}`,
+    readyText: (name) => `文字就绪 · ${name}`,
+    readyImage: (name) => `生图就绪 · ${name}`,
     noEngine: '尚未配置引擎',
     preparing: '准备中',
     maskMode: '选区模式',
@@ -253,6 +258,12 @@ export const zhHans: Dict = {
     timeout: '超时（秒）',
     timeoutLocalHint: '本机推理建议 300 以上',
     timeoutCloudHint: '建议 60–120',
+    textTimeout: '文字模型超时（秒）',
+    imageTimeout: '生图模型超时（秒）',
+    timeoutTextLocalHint: '本机推理建议 300 以上',
+    timeoutTextCloudHint: '建议 60–120',
+    timeoutImageLocalHint: '本机推理建议 300 以上',
+    timeoutImageCloudHint: '建议 60–180',
 
     probe: '测试连接',
     probing: '测试中…',

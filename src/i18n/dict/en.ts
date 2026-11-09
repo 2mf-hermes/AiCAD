@@ -122,7 +122,10 @@ export const en: Dict = {
     fallbackEnabled: 'Join fallback chain', fallbackEnabledHint: 'Allow this Provider to take over after another engine fails',
     textFallbackEnabled: 'Text model fallback', textFallbackEnabledHint: 'Allow the text model to take over prompt refinement',
     imageFallbackEnabled: 'Image model fallback', imageFallbackEnabledHint: 'Allow the image model to take over generation and inpainting',
-    endpoint: 'Endpoint', endpointHint: 'Relative path or absolute URL',
+    endpoint: 'Endpoint', endpointHint: 'Relative path or absolute URL', endpointPreset: 'Preset endpoints',
+    endpointText: 'Text model endpoint',
+    endpointImage: 'Image generation endpoint',
+    endpointInpaint: 'Inpainting endpoint',
     retryCount: 'Retry count', retryHint: 'Retry 0 to 5 times before falling back to the next Provider',
     authentication: 'Authentication', authHint: 'Credentials remain in Windows DPAPI and are never written to settings',
     authNone: 'None', authBearer: 'Bearer Token', authApiKey: 'API Key Header', authQuery: 'Query Parameter',
@@ -176,6 +179,8 @@ export const en: Dict = {
 
   status: {
     ready: (name) => `Ready · ${name}`,
+    readyText: (name) => `Text ready · ${name}`,
+    readyImage: (name) => `Image ready · ${name}`,
     noEngine: 'No engine configured',
     preparing: 'Preparing',
     maskMode: 'Region select',
@@ -255,6 +260,12 @@ export const en: Dict = {
     timeout: 'Timeout (s)',
     timeoutLocalHint: 'Local inference: 300 or more recommended',
     timeoutCloudHint: '60–120 recommended',
+    textTimeout: 'Text model timeout (s)',
+    imageTimeout: 'Image model timeout (s)',
+    timeoutTextLocalHint: 'Local inference: 300 or more recommended',
+    timeoutTextCloudHint: '60–120 recommended',
+    timeoutImageLocalHint: 'Local inference: 300 or more recommended',
+    timeoutImageCloudHint: '60–180 recommended',
 
     probe: 'Test connection',
     probing: 'Testing…',

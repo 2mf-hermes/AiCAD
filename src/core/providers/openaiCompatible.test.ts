@@ -96,4 +96,76 @@ describe('OpenAI-compatible inpainting', () => {
     expect(captured?.headers).not.toHaveProperty('authorization');
     vi.unstubAllGlobals();
   });
+
+  it('routes text, image and inpaint calls to their own endpoint paths', async () => {
+    vi.stubGlobal('Image', class { src = ''; naturalWidth = 1; naturalHeight = 1; async decode() {} });
+    vi.stubGlobal('document', { createElement: () => ({
+      width: 0, height: 0,
+      getContext: () => ({ drawImage: vi.fn(), getImageData: () => ({ data: new Uint8ClampedArray([255, 255, 255, 255]) }), putImageData: vi.fn() }),
+      toDataURL: () => 'data:image/png;base64,alpha-mask',
+    }) });
+    const urls: string[] = [];
+    setTransport(async (request) => {
+      urls.push(request.url);
+      const text = request.url.includes('/text')
+        ? JSON.stringify({ choices: [{ message: { content: 'refined' } }] })
+        : JSON.stringify({ data: [{ b64_json: 'ok' }] });
+      return { status: 200, ok: true, text };
+    });
+    const config = createDefaultConfig('openai', 'cloud');
+    config.baseUrl = 'https://relay.example/v1';
+    config.authentication = { type: 'none', headerName: '', queryName: '', prefix: '' };
+    config.textEndpoint = 'https://text.example/v1/chat/completions';
+    config.imageEndpoint = 'https://image.example/v1/images/generations';
+    config.inpaintEndpoint = 'https://inpaint.example/v1/images/edits';
+    const adapter = createOpenAICompatibleAdapter(spec);
+    const signal = new AbortController().signal;
+
+    await adapter.refinePrompt!(config, 'secret', { draft: 'draft', subject: 'flange' }, signal);
+    await adapter.generateImage!(config, 'secret', { prompt: 'draw', width: 64, height: 64 }, signal);
+    await adapter.inpaintImage!(config, 'secret', {
+      prompt: 'edit', imageBase64: 'source', maskBase64: 'mask', width: 64, height: 64,
+    }, signal);
+
+    expect(urls).toEqual([
+      'https://text.example/v1/chat/completions',
+      'https://image.example/v1/images/generations',
+      'https://inpaint.example/v1/images/edits',
+    ]);
+    vi.unstubAllGlobals();
+  });
+
+  it('falls back to the generic endpoint when a per-type path is unset', async () => {
+    vi.stubGlobal('Image', class { src = ''; naturalWidth = 1; naturalHeight = 1; async decode() {} });
+    vi.stubGlobal('document', { createElement: () => ({
+      width: 0, height: 0,
+      getContext: () => ({ drawImage: vi.fn(), getImageData: () => ({ data: new Uint8ClampedArray([255, 255, 255, 255]) }), putImageData: vi.fn() }),
+      toDataURL: () => 'data:image/png;base64,alpha-mask',
+    }) });
+    const urls: string[] = [];
+    setTransport(async (request) => {
+      urls.push(request.url);
+      return { status: 200, ok: true, text: JSON.stringify({ data: [{ b64_json: 'ok' }] }) };
+    });
+    // 舊設定只有通用 endpoint：三個既有欄位留空時必須沿用同一條路徑。
+    const config = createDefaultConfig('openai', 'cloud');
+    config.baseUrl = 'https://relay.example/api';
+    config.endpoint = '/proxy/{operation}';
+    config.textEndpoint = '';
+    config.imageEndpoint = '';
+    config.inpaintEndpoint = '';
+    const adapter = createOpenAICompatibleAdapter(spec);
+    const signal = new AbortController().signal;
+
+    await adapter.generateImage!(config, 'secret', { prompt: 'draw', width: 64, height: 64 }, signal);
+    await adapter.inpaintImage!(config, 'secret', {
+      prompt: 'edit', imageBase64: 'source', maskBase64: 'mask', width: 64, height: 64,
+    }, signal);
+
+    expect(urls).toEqual([
+      'https://relay.example/api/proxy/images/generations',
+      'https://relay.example/api/proxy/images/edits',
+    ]);
+    vi.unstubAllGlobals();
+  });
 });
