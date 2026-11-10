@@ -5,11 +5,18 @@
    inlineData 中夾帶 base64，格式與 OpenAI 完全不同，所以獨立成檔。
    ========================================================================== */
 
-import { postJson, trimSlash } from '../net/transport';
+import { apiUrl, postJson, withApiPrefix } from '../net/transport';
 import { systemInstructionFor } from '../prompt/builder';
 import { ProviderError, type ProviderAdapter, type ProviderConfig } from './types';
 
-const DEFAULT_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+// 預設位址不帶版本路徑，由 baseFor() 自動補上 /v1beta。
+const DEFAULT_BASE = 'https://generativelanguage.googleapis.com';
+const API_PREFIX = '/v1beta';
+
+/** 有效 API 根位址：使用者填的位址若沒帶路徑，自動補上 /v1beta。 */
+function baseFor(cfg: ProviderConfig): string {
+  return withApiPrefix(cfg.baseUrl || DEFAULT_BASE, API_PREFIX);
+}
 
 interface Part {
   text?: string;
@@ -29,7 +36,7 @@ function endpoint(cfg: ProviderConfig, model: string, kind: 'text' | 'image'): s
   const override = (kind === 'text' ? cfg.textEndpoint : cfg.imageEndpoint ?? '').trim();
   const path = (override || `/models/${model}:generateContent`).replace(/\{model\}/g, model);
   if (/^https?:\/\//i.test(path)) return path;
-  return `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}${path.startsWith('/') ? path : `/${path}`}`;
+  return apiUrl(cfg.baseUrl || DEFAULT_BASE, API_PREFIX, path);
 }
 
 export const geminiAdapter: ProviderAdapter = {
@@ -42,6 +49,7 @@ export const geminiAdapter: ProviderAdapter = {
     textModel: 'gemini-2.5-flash',
     imageModel: 'gemini-2.5-flash-image',
   },
+  apiBase: baseFor,
 
   async probe(cfg, secret, signal) {
     try {

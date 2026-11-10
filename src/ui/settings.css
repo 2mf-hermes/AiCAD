@@ -247,3 +247,29 @@
 .endpoint__presets > button.input:hover {
   background: var(--bg-hover);
 }
+
+/* Base URL 尾端自帶路徑時的確認列：留在欄位下方，不擋住其他設定。 */
+.baseurl__ask {
+  margin-top: var(--sp-2);
+  border: 1px solid var(--line-hairline);
+  border-left: 2px solid var(--accent, var(--line-hairline));
+  border-radius: var(--r-sm);
+  background: var(--bg-base);
+  padding: var(--sp-2) var(--sp-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.baseurl__ask-text {
+  font-size: var(--fs-caption);
+  color: var(--fg-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.baseurl__ask-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}

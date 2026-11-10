@@ -206,3 +206,72 @@ function extractMessage(raw: string): string {
 export function trimSlash(u: string): string {
   return u.replace(/\/+$/, '');
 }
+
+/* ----------------------------------------------------------------------------
+   Base URL 正規化
+   ----------------------------------------------------------------------------
+   使用者只要填服務位址（例如 https://api.openai.com）；API 版本路徑（/v1、/v1beta…）
+   由程式在組 URL 時自動補齊，因此欄位提示與預設值都不再帶 /v1。
+   若使用者自己在位址後帶了路徑（/v1、/api…），一律以他填的為準，且不會重複疊加
+   版本段落（不會出現 /v1/v1）。
+   -------------------------------------------------------------------------- */
+
+/** 版本段落樣式：v1、v2、v1beta、v1alpha… */
+const VERSION_SEGMENT = /^v\d+[a-z0-9]*$/i;
+
+/** 取出 URL 的路徑部分（含前導斜線、不含 query/hash）；沒有路徑時回傳 ''。 */
+export function apiPathOf(u: string): string {
+  const s = (u ?? '').trim().replace(/[?#].*$/, '');
+  if (!s) return '';
+  const scheme = /^[a-z][a-z0-9+.-]*:\/\/[^/]*/i.exec(s);
+  if (!scheme) {
+    // 沒有 scheme（例：127.0.0.1:11434/v1）時，第一個斜線之後就是路徑
+    const slash = s.indexOf('/');
+    return slash < 0 ? '' : s.slice(slash);
+  }
+  return s.slice(scheme[0].length);
+}
+
+/** URL 是否已自帶路徑（例：https://host/v1、https://host/api）。 */
+export function hasApiPath(u: string): boolean {
+  return apiPathOf(u).replace(/\/+$/, '').length > 1;
+}
+
+/** URL 尾端的版本段落（'https://host/v1' → '/v1'）；沒有則回傳 ''。 */
+export function apiVersionSegment(u: string): string {
+  const segments = apiPathOf(u).replace(/\/+$/, '').split('/').filter(Boolean);
+  const last = segments[segments.length - 1] ?? '';
+  return VERSION_SEGMENT.test(last) ? `/${last}` : '';
+}
+
+/** 只留 scheme + host（'https://host/v1' → 'https://host'）。 */
+export function stripApiPath(u: string): string {
+  const s = (u ?? '').trim().replace(/[?#].*$/, '');
+  const path = apiPathOf(s);
+  return trimSlash(path ? s.slice(0, s.length - path.length) : s);
+}
+
+/** 位址尚未自帶路徑時補上 API 版本前綴（例：'/v1'）。 */
+export function withApiPrefix(base: string, prefix: string): string {
+  const b = trimSlash((base ?? '').trim());
+  if (!b || !prefix || hasApiPath(b)) return b;
+  return `${b}${prefix}`;
+}
+
+/** base + path，並避免版本段落重複（不會組出 /v1/v1/…）。 */
+export function joinApiUrl(base: string, path: string): string {
+  const b = trimSlash((base ?? '').trim());
+  const p = path.startsWith('/') ? path : `/${path}`;
+  const baseVersion = apiVersionSegment(b);
+  const first = apiPathOf(p).split('/').filter(Boolean)[0] ?? '';
+  const pathVersion = VERSION_SEGMENT.test(first) ? `/${first}` : '';
+  if (baseVersion && pathVersion && baseVersion === pathVersion) {
+    return `${b}${p.slice(pathVersion.length)}`;
+  }
+  return `${b}${p}`;
+}
+
+/** 一次做完「補版本前綴 + 串接路徑」，adapter 都用這支組 URL。 */
+export function apiUrl(base: string, prefix: string, path: string): string {
+  return joinApiUrl(withApiPrefix(base, prefix), path);
+}

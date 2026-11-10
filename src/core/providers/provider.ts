@@ -1,4 +1,4 @@
-import { fetchImageAsBase64, getJson, postJson, trimSlash } from '../net/transport';
+import { apiUrl, fetchImageAsBase64, getJson, postJson, trimSlash } from '../net/transport';
 import { systemInstructionFor } from '../prompt/builder';
 import { secrets } from '../secrets';
 import { getAdapter } from './registry';
@@ -49,7 +49,8 @@ class AdapterProvider extends AIProvider {
     const adapter = getAdapter(this.config.legacyAdapterId ?? adapterId(this.config));
     const secret = await secrets().get(this.config.secretRef);
     if (adapter.getModels) return adapter.getModels(this.config, secret, signal);
-    const base = trimSlash(this.config.baseUrl);
+    // 走 adapter 的 apiBase，模型列表才跟生成／測試用同一條補齊規則（例：自動補 /v1）。
+    const base = adapter.apiBase ? adapter.apiBase(this.config) : trimSlash(this.config.baseUrl);
     if (!base) return [];
     try {
       const response = await getJson<{ data?: { id?: string }[] }>(
@@ -73,7 +74,7 @@ class CustomProvider extends AIProvider {
         ? this.config.inpaintEndpoint
         : this.config.imageEndpoint;
     const url = authenticatedUrl(
-      joinUrl(this.config.baseUrl, (perMode ?? '').trim() || this.config.endpoint),
+      joinUrl(this.config.baseUrl, (perMode ?? '').trim() || this.config.endpoint, CUSTOM_API_PREFIX),
       this.config,
       secret,
     );
@@ -107,7 +108,7 @@ class CustomProvider extends AIProvider {
   async getModels(signal: AbortSignal): Promise<string[]> {
     const secret = await secrets().get(this.config.secretRef);
     const path = this.config.responseFormat.modelsPath || 'data';
-    const url = authenticatedUrl(joinUrl(this.config.baseUrl, '/models'), this.config, secret);
+    const url = authenticatedUrl(joinUrl(this.config.baseUrl, '/models', CUSTOM_API_PREFIX), this.config, secret);
     try {
       const response = await getJson<JsonRecord>(url, authHeaders(this.config, secret), this.config.timeout * 1000, signal);
       const items = readPath(response, path);
@@ -159,9 +160,15 @@ function authenticatedUrl(url: string, config: ProviderConfig, secret: string): 
   return parsed.toString();
 }
 
-function joinUrl(base: string, endpoint: string): string {
+/**
+ * 自訂引擎沒有宣告自己的 API 版本前綴，比照 OpenAI 相容慣例補 /v1。
+ * 使用者若在位址後自己帶了路徑（/api、/v2…）就以他填的為準，不會被覆蓋。
+ */
+const CUSTOM_API_PREFIX = '/v1';
+
+function joinUrl(base: string, endpoint: string, prefix = ''): string {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
-  return `${trimSlash(base)}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  return apiUrl(base, prefix, endpoint);
 }
 
 function buildCustomBody(config: ProviderConfig, request: ProviderRequest): unknown {

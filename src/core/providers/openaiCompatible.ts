@@ -6,7 +6,7 @@
    因此用工廠函式產生，避免四份幾乎一樣的檔案。
    ========================================================================== */
 
-import { fetchImageAsBase64, getJson, isTimeout, postJson, postMultipart, trimSlash } from '../net/transport';
+import { apiUrl, fetchImageAsBase64, getJson, isTimeout, postJson, postMultipart, withApiPrefix } from '../net/transport';
 import { systemInstructionFor } from '../prompt/builder';
 import {
   ProviderError,
@@ -38,8 +38,9 @@ function authHeaders(cfg: ProviderConfig, secret: string): Record<string, string
   return h;
 }
 
-function base(cfg: ProviderConfig, fallback: string): string {
-  return trimSlash(cfg.baseUrl || fallback);
+/** 有效 API 根位址：使用者填的位址若沒帶路徑，自動補上版本前綴（例：/v1）。 */
+function baseFor(cfg: ProviderConfig, fallback: string, prefix: string): string {
+  return withApiPrefix(cfg.baseUrl || fallback, prefix);
 }
 
 /** 依呼叫種類挑選對應的端點路徑（文字／生圖／修圖各自獨立）。
@@ -51,13 +52,19 @@ function operationEndpoint(cfg: ProviderConfig, operation: string): string {
   return '';
 }
 
-function endpoint(cfg: ProviderConfig, fallback: string, operation: string, secret: string): string {
+function endpoint(
+  cfg: ProviderConfig,
+  fallback: string,
+  operation: string,
+  secret: string,
+  prefix: string,
+): string {
   const configured = operationEndpoint(cfg, operation) || cfg.endpoint.trim();
   let url: string;
-  if (!configured) url = `${base(cfg, fallback)}/${operation}`;
+  if (!configured) url = apiUrl(cfg.baseUrl || fallback, prefix, `/${operation}`);
   else {
     const path = configured.replace(/\{operation\}/g, operation);
-    url = /^https?:\/\//i.test(path) ? path : `${base(cfg, fallback)}${path.startsWith('/') ? path : `/${path}`}`;
+    url = /^https?:\/\//i.test(path) ? path : apiUrl(cfg.baseUrl || fallback, prefix, path);
   }
   if (!secret || cfg.authentication.type !== 'query') return url;
   const parsed = new URL(url);
@@ -73,18 +80,22 @@ interface Spec {
   imageModel: string;
   capabilities: ProviderCapabilities;
   isLocal: boolean;
+  /** 位址未帶路徑時要自動補上的 API 版本前綴；預設 '/v1'。 */
+  apiPrefix?: string;
 }
 
 export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
+  const prefix = spec.apiPrefix ?? '/v1';
   const adapter: ProviderAdapter = {
     id: spec.id,
     displayName: spec.displayName,
     capabilities: spec.capabilities,
     isLocal: spec.isLocal,
     defaults: { baseUrl: spec.baseUrl, textModel: spec.textModel, imageModel: spec.imageModel },
+    apiBase: (cfg) => baseFor(cfg, spec.baseUrl, prefix),
 
     async probe(cfg, secret, signal) {
-      const url = endpoint(cfg, spec.baseUrl, 'models', secret);
+      const url = endpoint(cfg, spec.baseUrl, 'models', secret, prefix);
       try {
         const res = await getJson<ModelListResponse>(
           url,
@@ -101,7 +112,7 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
 
     async refinePrompt(cfg, secret, input: RefinePromptInput, signal) {
       if (!spec.capabilities.text) throw new ProviderError('此引擎不支援文字精煉', spec.id);
-      const url = endpoint(cfg, spec.baseUrl, 'chat/completions', secret);
+      const url = endpoint(cfg, spec.baseUrl, 'chat/completions', secret, prefix);
       try {
         const res = await postJson<ChatResponse>(
           url,
@@ -135,7 +146,7 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
         : input.prompt;
       try {
         if (input.images?.length) {
-          const url = endpoint(cfg, spec.baseUrl, 'images/edits', secret);
+          const url = endpoint(cfg, spec.baseUrl, 'images/edits', secret, prefix);
           const res = await postMultipart<ImageResponse>(
             url,
             [
@@ -170,7 +181,7 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
           return { base64, width: input.width, height: input.height, seed: input.seed };
         }
 
-        const url = endpoint(cfg, spec.baseUrl, 'images/generations', secret);
+        const url = endpoint(cfg, spec.baseUrl, 'images/generations', secret, prefix);
         const res = await postJson<ImageResponse>(
           url,
           {
@@ -217,7 +228,7 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
 
   if (spec.capabilities.imageInpaint) {
     adapter.inpaintImage = async (cfg, secret, input: InpaintImageInput, signal) => {
-      const url = endpoint(cfg, spec.baseUrl, 'images/edits', secret);
+      const url = endpoint(cfg, spec.baseUrl, 'images/edits', secret, prefix);
       try {
         const openAIMask = await toOpenAIAlphaMask(input.maskBase64);
         const res = await postMultipart<ImageResponse>(
@@ -284,7 +295,7 @@ function wrap(e: unknown, id: ProviderId): ProviderError {
   const status = (e as { status?: number })?.status;
   let hint: string | undefined;
   if (status === 401 || status === 403) hint = '請確認 API Key 與端點是否相符';
-  else if (status === 404) hint = '端點路徑可能不含 /v1，請檢查 Base URL';
+  else if (status === 404) hint = 'Base URL 或端點路徑不符；Base URL 只填服務位址就好，路徑由程式自動補齊';
   else if (status === 429) hint = '已達速率上限，稍後重試或降低併發';
   else if (isTimeout(e) || /timeout|逾時|abort/i.test(msg))
     hint = '請在該引擎設定中調高「逾時秒數」；本地模型或高解析度出圖需要更長時間';

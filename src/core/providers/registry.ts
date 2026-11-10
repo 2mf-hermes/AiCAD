@@ -14,7 +14,9 @@ import type { LegacyProviderId, ProviderAdapter, ProviderConfig, ProviderType } 
 const openaiAdapter = createOpenAICompatibleAdapter({
   id: 'openai',
   displayName: 'OpenAI',
-  baseUrl: 'https://api.openai.com/v1',
+  // 只填服務位址，/v1 由 adapter 依 apiPrefix 自動補齊。
+  baseUrl: 'https://api.openai.com',
+  apiPrefix: '/v1',
   textModel: 'gpt-5',
   imageModel: 'gpt-image-1',
   capabilities: { text: true, imageGenerate: true, imageInpaint: true, vision: true },
@@ -24,7 +26,8 @@ const openaiAdapter = createOpenAICompatibleAdapter({
 const xaiAdapter = createOpenAICompatibleAdapter({
   id: 'xai',
   displayName: 'xAI Grok',
-  baseUrl: 'https://api.x.ai/v1',
+  baseUrl: 'https://api.x.ai',
+  apiPrefix: '/v1',
   textModel: 'grok-4',
   imageModel: 'grok-2-image',
   capabilities: { text: true, imageGenerate: true, imageInpaint: false, vision: true },
@@ -35,6 +38,7 @@ const compatibleAdapter = createOpenAICompatibleAdapter({
   id: 'compatible',
   displayName: '自訂 / 聚合中轉站',
   baseUrl: '',
+  apiPrefix: '/v1',
   textModel: '',
   imageModel: '',
   // 中轉站能力未知，全開讓使用者自行嘗試，錯誤訊息會如實回報
@@ -45,7 +49,8 @@ const compatibleAdapter = createOpenAICompatibleAdapter({
 const ollamaAdapter = createOpenAICompatibleAdapter({
   id: 'ollama',
   displayName: '本地 Ollama',
-  baseUrl: 'http://127.0.0.1:11434/v1',
+  baseUrl: 'http://127.0.0.1:11434',
+  apiPrefix: '/v1',
   textModel: 'qwen3:8b',
   imageModel: '',
   capabilities: { text: true, imageGenerate: false, imageInpaint: false, vision: true },

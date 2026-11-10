@@ -161,6 +161,11 @@ export interface ProviderAdapter {
   readonly capabilities: ProviderCapabilities;
   readonly defaults: Pick<ProviderConfig, 'baseUrl' | 'textModel' | 'imageModel'>;
   readonly isLocal: boolean;
+  /**
+   * 有效 API 根位址：使用者只填服務位址時自動補上 API 版本路徑（例：/v1）。
+   * 模型列表等共用路徑都必須走這裡，才不會繞過補齊規則。
+   */
+  apiBase?(cfg: ProviderConfig): string;
   probe(cfg: ProviderConfig, secret: string, signal: AbortSignal): Promise<string>;
   getModels?(cfg: ProviderConfig, secret: string, signal: AbortSignal): Promise<string[]>;
   refinePrompt?(cfg: ProviderConfig, secret: string, input: RefinePromptInput, signal: AbortSignal): Promise<string>;

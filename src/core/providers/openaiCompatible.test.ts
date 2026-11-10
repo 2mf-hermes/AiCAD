@@ -6,7 +6,8 @@ import { createOpenAICompatibleAdapter } from './openaiCompatible';
 const spec = {
   id: 'openai' as const,
   displayName: 'OpenAI',
-  baseUrl: 'https://api.openai.com/v1',
+  baseUrl: 'https://api.openai.com',
+  apiPrefix: '/v1',
   textModel: 'gpt-4.1-mini',
   imageModel: 'gpt-image-1',
   capabilities: { text: true, imageGenerate: true, imageInpaint: true, vision: true },
@@ -167,5 +168,39 @@ describe('OpenAI-compatible inpainting', () => {
       'https://relay.example/api/proxy/images/edits',
     ]);
     vi.unstubAllGlobals();
+  });
+
+  it('appends the API version path only when the base URL has none', async () => {
+    const urls: string[] = [];
+    setTransport(async (request) => {
+      urls.push(request.url);
+      return { status: 200, ok: true, text: JSON.stringify({ data: [{ b64_json: 'ok' }] }) };
+    });
+    const adapter = createOpenAICompatibleAdapter(spec);
+    const signal = new AbortController().signal;
+
+    // 只填服務位址：程式應自動補 /v1
+    const hostOnly = createDefaultConfig('openai', 'cloud');
+    hostOnly.baseUrl = 'https://api.openai.com';
+    hostOnly.imageEndpoint = '';
+    hostOnly.inpaintEndpoint = '';
+    hostOnly.textEndpoint = '';
+    hostOnly.endpoint = '';
+    // 模型列表（獲取模型）走同一條補齊規則
+    expect(adapter.apiBase!(hostOnly)).toBe('https://api.openai.com/v1');
+    await adapter.generateImage!(hostOnly, 'secret', { prompt: 'draw', width: 64, height: 64 }, signal);
+    // 使用者自己帶了路徑：以他填的為準，不重複補成 /v1/v1
+    const selfPathed = createDefaultConfig('openai', 'cloud');
+    selfPathed.baseUrl = 'https://api.openai.com/v1';
+    selfPathed.imageEndpoint = '';
+    selfPathed.inpaintEndpoint = '';
+    selfPathed.textEndpoint = '';
+    selfPathed.endpoint = '';
+    await adapter.generateImage!(selfPathed, 'secret', { prompt: 'draw', width: 64, height: 64 }, signal);
+
+    expect(urls).toEqual([
+      'https://api.openai.com/v1/images/generations',
+      'https://api.openai.com/v1/images/generations',
+    ]);
   });
 });

@@ -29,6 +29,8 @@ export const sdWebuiAdapter: ProviderAdapter = {
   isLocal: true,
   capabilities: { text: false, imageGenerate: true, imageInpaint: true, vision: false },
   defaults: { baseUrl: DEFAULT_BASE, textModel: '', imageModel: '' },
+  // A1111 的路徑自帶 /sdapi/v1，不需要再補版本前綴。
+  apiBase: (cfg) => trimSlash(cfg.baseUrl || DEFAULT_BASE),
 
   async probe(cfg, _secret, signal) {
     try {

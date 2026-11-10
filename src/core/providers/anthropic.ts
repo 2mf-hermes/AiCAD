@@ -6,12 +6,19 @@
    TextCapability / ImageCapability 的價值。
    ========================================================================== */
 
-import { postJson, trimSlash } from '../net/transport';
+import { apiUrl, postJson, withApiPrefix } from '../net/transport';
 import { systemInstructionFor } from '../prompt/builder';
 import { ProviderError, type ProviderAdapter, type ProviderConfig } from './types';
 
-const DEFAULT_BASE = 'https://api.anthropic.com/v1';
+// 預設位址不帶版本路徑，由 baseFor() 自動補上 /v1。
+const DEFAULT_BASE = 'https://api.anthropic.com';
+const API_PREFIX = '/v1';
 const API_VERSION = '2023-06-01';
+
+/** 有效 API 根位址：使用者填的位址若沒帶路徑，自動補上 /v1。 */
+function baseFor(cfg: ProviderConfig): string {
+  return withApiPrefix(cfg.baseUrl || DEFAULT_BASE, API_PREFIX);
+}
 
 interface MessagesResponse {
   content?: { type?: string; text?: string }[];
@@ -37,13 +44,14 @@ export const anthropicAdapter: ProviderAdapter = {
     textModel: 'claude-sonnet-4-5',
     imageModel: '',
   },
+  apiBase: baseFor,
 
   async probe(cfg, secret, signal) {
     // 文字模型可指定獨立路徑；未設定則沿用既有的 /messages。
     const path = (cfg.textEndpoint ?? '').trim() || '/messages';
     const url = /^https?:\/\//i.test(path)
       ? path
-      : `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}${path.startsWith('/') ? path : `/${path}`}`;
+      : apiUrl(cfg.baseUrl || DEFAULT_BASE, API_PREFIX, path);
     try {
       await postJson<MessagesResponse>(
         url,
@@ -67,7 +75,7 @@ export const anthropicAdapter: ProviderAdapter = {
     const path = (cfg.textEndpoint ?? '').trim() || '/messages';
     const url = /^https?:\/\//i.test(path)
       ? path
-      : `${trimSlash(cfg.baseUrl || DEFAULT_BASE)}${path.startsWith('/') ? path : `/${path}`}`;
+      : apiUrl(cfg.baseUrl || DEFAULT_BASE, API_PREFIX, path);
     try {
       const res = await postJson<MessagesResponse>(
         url,
@@ -106,7 +114,7 @@ function toProviderError(e: unknown): ProviderError {
     status === 401
       ? 'x-api-key 無效'
       : status === 404
-        ? 'Base URL 需以 /v1 結尾'
+        ? 'Base URL 可能填到端點路徑；只填服務位址即可（程式會自動補 /v1）'
         : undefined;
   return new ProviderError(msg, 'anthropic', status, hint);
 }

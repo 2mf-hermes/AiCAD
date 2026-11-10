@@ -21,6 +21,7 @@ import { LOCALES, LOCALE_LABEL, type Locale } from '../i18n/locales';
 import { hostVersion, isDesktop } from '../core/host';
 import { ADAPTERS, createDefaultConfig } from '../core/providers/registry';
 import { createProvider } from '../core/providers/provider';
+import { apiPathOf, stripApiPath } from '../core/net/transport';
 import type { ProviderConfig, ProviderId, ProviderType } from '../core/providers/types';
 import { ProviderError } from '../core/providers/types';
 import { maskSecret, secrets } from '../core/secrets';
@@ -308,6 +309,12 @@ function ModelsPane({
   const [draft, setDraft] = useState<ProviderConfig | null>(null);
   const [openEndpoint, setOpenEndpoint] =
     useState<'textEndpoint' | 'imageEndpoint' | 'inpaintEndpoint' | null>(null);
+  /**
+   * 使用者在 Base URL 尾端自己帶了路徑（/v1、/api…）時，這裡放要確認的字串。
+   * 只在離開欄位時問一次，且同一組字串問過就不再重複問。
+   */
+  const [baseUrlAsk, setBaseUrlAsk] = useState<{ base: string; path: string } | null>(null);
+  const [baseUrlKept, setBaseUrlKept] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   const savedCfg = (settings.providers.find((provider) => provider.id === selected) ?? settings.providers[0])!;
@@ -379,7 +386,12 @@ function ModelsPane({
     setEditing(false);
     setDraft(null);
     setModels([]);
+    setBaseUrlAsk(null);
+    setBaseUrlKept('');
   }, [selected]);
+  useEffect(() => {
+    if (!editing) setBaseUrlAsk(null);
+  }, [editing]);
   // 切換引擎時重置探測結果，並讀出已存憑證的遮罩形式（永不還原明文）
   useEffect(() => {
     setProbe({ kind: 'idle' });
@@ -686,8 +698,8 @@ function ModelsPane({
               label={t.settings.baseUrl}
               hint={
                 cfg.baseUrl
-                  ? t.settings.baseUrlDefault(cfg.baseUrl)
-                  : t.settings.baseUrlRelay
+                  ? t.settings.baseUrlRelay
+                  : `${t.settings.baseUrlDefault(adapter.defaults.baseUrl)} · ${t.settings.baseUrlRelay}`
               }
             >
               <input
@@ -695,10 +707,44 @@ function ModelsPane({
                 spellCheck={false}
                 disabled={!editing}
                 value={cfg.baseUrl}
-                placeholder="https://your-relay.example.com/v1"
+                placeholder="https://your-relay.example.com"
                 onChange={(e) => patch({ baseUrl: e.target.value.trim() })}
+                onBlur={(e) => {
+                  const base = e.target.value.trim();
+                  const path = base ? apiPathOf(base) : '';
+                  // 沒有尾端路徑就不用問；同一組字串確認過也不再問。
+                  setBaseUrlAsk(path && path !== '/' && base !== baseUrlKept ? { base, path } : null);
+                }}
               />
             </Field>
+            {baseUrlAsk && (
+              <div className="baseurl__ask" role="alert">
+                <span className="baseurl__ask-text">{t.settings.baseUrlPathAsk(baseUrlAsk.path)}</span>
+                <div className="baseurl__ask-actions">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setBaseUrlKept(baseUrlAsk.base);
+                      setBaseUrlAsk(null);
+                    }}
+                  >
+                    {t.settings.baseUrlPathKeep}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const stripped = stripApiPath(baseUrlAsk.base);
+                      patch({ baseUrl: stripped });
+                      setBaseUrlKept(stripped);
+                      setBaseUrlAsk(null);
+                    }}
+                  >
+                    {t.settings.baseUrlPathDrop}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="provform__full">
