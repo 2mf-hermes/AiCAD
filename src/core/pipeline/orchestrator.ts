@@ -227,6 +227,7 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
     if (r.mimeType !== 'text/plain') continue;
     try { referenceNotes += `\nReference file ${r.name}:\n${referenceText(r).slice(0, 4000)}\n`; } catch { /* skip unreadable */ }
   }
+  let usedPrompt = textualPrompt;
   const { result, config } = await executeWithFallback<ImageResult>(
     configs,
     'image',
@@ -235,21 +236,38 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
          改走 /images/edits。沒有局部重繪能力的引擎未必實作該端點，硬附圖會讓原本
          可用的設定直接失效，所以只對有能力處理輸入影像的引擎附圖，其餘仍吃草稿摘要。 */
       const attachDraft = Boolean(draftImage) && candidate.capabilities.imageInpaint;
-      const attemptImages = attachDraft ? sheetImages : images;
-      const output = await createProvider(candidate).generate(
+
+      const runImage = (withDraft: boolean) => createProvider(candidate).generate(
         {
           mode: 'image',
           input: {
-            prompt: attachDraft ? prompt : textualPrompt,
+            prompt: withDraft ? prompt : textualPrompt,
             negativePrompt: buildNegativePrompt(intent),
             width,
             height,
-            images: attemptImages.length ? attemptImages : undefined,
+            images: withDraft ? sheetImages : images.length ? images : undefined,
             referenceNotes: referenceNotes || undefined,
           },
         },
         signal,
       );
+      let output;
+      usedPrompt = attachDraft ? prompt : textualPrompt;
+      try {
+        output = await runImage(attachDraft);
+      } catch (error) {
+        signal.throwIfAborted();
+        // Only discard our optional blueprint, never user reference images.
+        // A rejected edit endpoint is safe to retry as text-to-image; timeouts are not.
+        const unsupported = error instanceof ProviderError && (
+          [404, 405, 415, 501].includes(error.status ?? 0)
+          || (error.status === 400 && /(?:not support|unsupported|not available).*(?:edit|image input)|(?:edit|image input).*(?:not support|unsupported|not available)/i.test(error.message))
+        );
+        if (!attachDraft || images.length || !unsupported) throw error;
+        deps.onProgress({ stage: 'drawing', note: `${candidate.name} 不支援草稿圖片輸入，改用草稿文字摘要生圖` });
+        usedPrompt = textualPrompt;
+        output = await runImage(false);
+      }
       if (typeof output === 'string') throw new ProviderError('出圖回應格式無效', candidate.id, undefined, undefined, 'invalid-response');
       return output;
     },
@@ -257,7 +275,6 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在繪製圖面${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
   deps.signal.throwIfAborted();
-  const usedPrompt = draftImage && config.capabilities.imageInpaint ? prompt : textualPrompt;
   return artboard(result, intent, usedPrompt, config, draft?.labels);
 }
 

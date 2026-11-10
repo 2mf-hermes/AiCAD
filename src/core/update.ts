@@ -107,8 +107,8 @@ export const UPDATE_UNAVAILABLE = 'UPDATE_UNAVAILABLE';
 
 /* ---------------------------------------------------------------------------
    版本比較
-   刻意只支援 major.minor.patch(-prerelease)。理由：發佈流程由我們自己控制，
-   不需要完整 semver 解析器；但預發佈標記要能被辨識，否則 0.2.0-rc1 會被誤判
+   刻意只支援 major.minor.patch，可再接選用的第四段修補版號（如 0.3.5.1），最後是 -prerelease 標記。理由：發佈流程由我們自己控制，
+   不需要完整 semver 解析器；但修補段要能比較出高低，否則 0.3.5.1 等於 0.3.5、使用者收不到更新；預發佈標記要能被辨識，否則 0.2.0-rc1 會被誤判
    成比 0.2.0 新。
    --------------------------------------------------------------------------- */
 
@@ -116,11 +116,11 @@ export function compareVersions(a: string, b: string): number {
   const parse = (v: string) => {
     const [core = '', pre = ''] = v.replace(/^v/i, '').split('-', 2);
     const nums = core.split('.').map((n) => Number.parseInt(n, 10) || 0);
-    return { nums: [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0], pre };
+    return { nums: [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0, nums[3] ?? 0], pre };
   };
   const pa = parse(a);
   const pb = parse(b);
-  for (let i = 0; i < 3; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     if (pa.nums[i] !== pb.nums[i]) return pa.nums[i] > pb.nums[i] ? 1 : -1;
   }
   // 有預發佈標記者較舊（1.0.0-rc1 < 1.0.0）

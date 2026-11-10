@@ -719,22 +719,19 @@ func checkForUpdate(channel string) (*updateInfo, error) {
 /* ---------------------------------------------------------------------------
    版本比較
    ----------------------------------------------------------------------------
-   與前端 update.ts 的 compareVersions 同一套規則：只認 major.minor.patch
+   與前端 update.ts 的 compareVersions 同一套規則：認 major.minor.patch，可再接選用的第四段修補版號（如 0.3.5.1），最後才是預發佈標記；
    加選用的預發佈標記，且有預發佈標記者較舊。兩邊必須一致，否則會出現
    「UI 說有新版、宿主說沒有」的荒謬狀況。
    --------------------------------------------------------------------------- */
 
-func parseVersion(v string) ([3]int, string) {
+func parseVersion(v string) ([4]int, string) {
 	v = strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(v), "v"), "V")
 	core, pre := v, ""
 	if i := strings.IndexByte(v, '-'); i >= 0 {
 		core, pre = v[:i], v[i+1:]
 	}
-	var nums [3]int
-	for i, part := range strings.SplitN(core, ".", 3) {
-		if i > 2 {
-			break
-		}
+	var nums [4]int
+	for i, part := range strings.SplitN(core, ".", 4) {
 		n, err := strconv.Atoi(strings.TrimSpace(part))
 		if err != nil {
 			n = 0
@@ -747,7 +744,7 @@ func parseVersion(v string) ([3]int, string) {
 func compareVersions(a, b string) int {
 	na, pa := parseVersion(a)
 	nb, pb := parseVersion(b)
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		if na[i] != nb[i] {
 			if na[i] > nb[i] {
 				return 1

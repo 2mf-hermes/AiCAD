@@ -25,6 +25,17 @@ interface ChatResponse {
 interface ImageResponse {
   data?: { b64_json?: string; url?: string }[];
 }
+function isGptImage(model: string): boolean {
+  return /(?:^|\/)gpt-image-/i.test(model);
+}
+
+function imageSize(model: string, width: number, height: number): string {
+  if (isGptImage(model)) return width === height ? '1024x1024' : width > height ? '1536x1024' : '1024x1536';
+  if (model === 'dall-e-3') return width === height ? '1024x1024' : width > height ? '1792x1024' : '1024x1792';
+  if (model === 'dall-e-2') return width === height && [256, 512, 1024].includes(width) ? `${width}x${height}` : '1024x1024';
+  return `${width}x${height}`;
+}
+
 interface ModelListResponse {
   data?: { id?: string }[];
 }
@@ -160,7 +171,7 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
               { name: 'model', value: cfg.imageModel || spec.imageModel },
               { name: 'size', value: 'auto' },
               { name: 'n', value: '1' },
-              { name: 'response_format', value: 'b64_json' },
+              ...(!isGptImage(cfg.imageModel || spec.imageModel) ? [{ name: 'response_format', value: 'b64_json' }] : []),
             ],
             authHeaders(cfg, secret),
             cfg.timeoutSec * 1000,
@@ -187,9 +198,9 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
           {
             model: cfg.imageModel || spec.imageModel,
             prompt,
-            size: `${input.width}x${input.height}`,
+            size: imageSize(cfg.imageModel || spec.imageModel, input.width, input.height),
             n: 1,
-            response_format: 'b64_json',
+            ...(!isGptImage(cfg.imageModel || spec.imageModel) ? { response_format: 'b64_json' } : {}),
           },
           authHeaders(cfg, secret),
           cfg.timeoutSec * 1000,
@@ -240,7 +251,7 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
             { name: 'model', value: cfg.imageModel || spec.imageModel },
             { name: 'size', value: 'auto' },
             { name: 'n', value: '1' },
-            { name: 'response_format', value: 'b64_json' },
+            ...(!isGptImage(cfg.imageModel || spec.imageModel) ? [{ name: 'response_format', value: 'b64_json' }] : []),
           ],
           authHeaders(cfg, secret),
           cfg.timeoutSec * 1000,

@@ -64,12 +64,37 @@ describe('OpenAI-compatible inpainting', () => {
       { name: 'prompt', value: 'replace bearing' },
       { name: 'model', value: 'gpt-image-1' },
       { name: 'size', value: 'auto' },
-      { name: 'response_format', value: 'b64_json' },
+
     ]));
+    expect(captured?.multipart?.some(part => part.name === 'response_format')).toBe(false);
     const converted = putImageData.mock.calls[0][0].data as Uint8ClampedArray;
     expect(Array.from(converted)).toEqual([0, 0, 0, 255, 0, 0, 0, 0]);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['gpt-image-1', 1600, 900, '1536x1024', false],
+    ['gpt-image-1-mini', 900, 1600, '1024x1536', false],
+    ['dall-e-3', 1536, 1024, '1792x1024', true],
+    ['dall-e-2', 1536, 1024, '1024x1024', true],
+    ['custom-image', 1600, 900, '1600x900', true],
+  ])('uses compatible parameters for %s', async (model, width, height, size, responseFormat) => {
+    let captured: HttpRequest | undefined;
+    setTransport(async request => {
+      captured = request;
+      return { status: 200, ok: true, text: JSON.stringify({ data: [{ b64_json: 'ok' }] }) };
+    });
+    const config = createDefaultConfig('openai', 'relay');
+    config.imageModel = model;
+    config.imageEndpoint = '/custom/generate';
+    await createOpenAICompatibleAdapter(spec).generateImage!(config, '', {
+      prompt: 'test', width, height,
+    }, new AbortController().signal);
+    expect(captured?.url).toContain('/custom/generate');
+    expect(captured?.json).toMatchObject({ model, size, n: 1 });
+    if (responseFormat) expect(captured?.json).toHaveProperty('response_format', 'b64_json');
+    else expect(captured?.json).not.toHaveProperty('response_format');
   });
 
   it('honors custom endpoint templates and query authentication', async () => {

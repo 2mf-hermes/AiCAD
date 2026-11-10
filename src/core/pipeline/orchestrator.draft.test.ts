@@ -1,5 +1,6 @@
 /* 生成管線：草稿階段的接線與「壞掉也不中斷」的備援行為 */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ProviderError } from '../providers/types';
 
 const calls: { mode: string; input: Record<string, unknown> }[] = [];
 let textReply: () => Promise<unknown> = async () => '';
@@ -157,6 +158,39 @@ describe('draft → svg → image 管線', () => {
     const images = input.images as { mimeType: string }[];
     expect(images?.[0]?.mimeType).toBe('image/png');
     expect(String(input.prompt)).toContain('first attached image');
+  });
+
+  it('retries rejected automatic draft input using the text-to-image path', async () => {
+    canvasAvailable = true;
+    let attempt = 0;
+    imageReply = async () => {
+      if (++attempt === 1) throw new ProviderError('edits not found', 'openai', 404);
+      return { base64: 'aW1n', width: 8, height: 8 };
+    };
+    const board = await generate(intent(), deps(settingsFor({ inpaint: true })));
+    const requests = calls.filter(c => c.mode === 'image');
+    expect(requests).toHaveLength(2);
+    expect(requests[0].input.images).toBeDefined();
+    expect(requests[1].input.images).toBeUndefined();
+    expect(board.resolvedPrompt).toContain('draft summary');
+    expect(board.resolvedPrompt).not.toContain('first attached image');
+  });
+
+  it('does not discard user images when edits are rejected', async () => {
+    canvasAvailable = true;
+    imageReply = async () => { throw new ProviderError('edits not found', 'openai', 404); };
+    const withReference = { ...(intent() as object), references: [
+      { name: 'reference.png', mimeType: 'image/png', dataUrl: 'data:image/png;base64,cmVm' },
+    ] } as never;
+    await expect(generate(withReference, deps(settingsFor({ inpaint: true })))).rejects.toThrow();
+    expect(calls.filter(c => c.mode === 'image')).toHaveLength(1);
+  });
+
+  it.each([401, 403, 400])('does not downgrade unrelated errors (%s)', async status => {
+    canvasAvailable = true;
+    imageReply = async () => { throw new ProviderError('request rejected', 'openai', status); };
+    await expect(generate(intent(), deps(settingsFor({ inpaint: true })))).rejects.toThrow();
+    expect(calls.filter(c => c.mode === 'image')).toHaveLength(1);
   });
 
   it('未接文字模型時完全不呼叫草稿階段', async () => {
