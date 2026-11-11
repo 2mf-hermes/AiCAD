@@ -155,6 +155,7 @@ export const zhHans: Dict = {
     titleInpaint: '局部重绘',
     titleEngine: '引擎与历史',
     imageEngine: '出图引擎',
+    imageEngineHint: '运作方式：提示语引擎汇总图面规格与草稿后，交由出图模型生成整张图面；遮罩局部重绘会送出图模型处理，未另选局部重绘模型时跟随主出图模型。',
     disabledSuffix: '（未启用）',
     noRefine: '不精炼提示词',
     refineWith: (name) => `用 ${name} 精炼`,

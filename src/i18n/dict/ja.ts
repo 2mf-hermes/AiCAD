@@ -156,6 +156,7 @@ export const ja: Dict = {
     titleInpaint: '部分再描画',
     titleEngine: 'エンジンと履歴',
     imageEngine: '画像エンジン',
+    imageEngineHint: '動作方法：プロンプトエンジンが図面仕様と下書きをまとめ、画像モデルが図面全体を生成します。マスク部分の部分再描画は画像モデルで処理され、未選択の場合はメインの画像モデルに従います。',
     disabledSuffix: '（無効）',
     noRefine: 'プロンプトを補正しない',
     refineWith: (name) => `${name} で補正`,

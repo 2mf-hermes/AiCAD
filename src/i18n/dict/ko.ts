@@ -156,6 +156,7 @@ export const ko: Dict = {
     titleInpaint: '부분 재작업',
     titleEngine: '엔진과 기록',
     imageEngine: '이미지 엔진',
+    imageEngineHint: '동작 방식: 프롬프트 엔진이 도면 규격과 초안을 정리한 뒤 이미지 모델이 도면 전체를 생성합니다. 마스크 부분 재생성은 이미지 모델로 처리되며, 별도 선택이 없으면 기본 이미지 모델을 따릅니다.',
     disabledSuffix: '(비활성)',
     noRefine: '프롬프트 보정 없음',
     refineWith: (name) => `${name}(으)로 보정`,

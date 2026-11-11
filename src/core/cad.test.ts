@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addCadLayer, alignCadEntities, assignCadEntitiesToLayer, cadSnapCandidates, cadSnapCandidatesForModes, cadToleranceForViewport, createCadEntity,
+  addCadLayer, alignCadEntities, assignCadEntitiesToLayer, cadSnapCandidates, cadSnapCandidatesForModes, cadToleranceForViewport, createArrayOffsets, createCadEntity,
   createCadRectangle, createDefaultCadWorkspace, deleteCadEntities, extendCadEntity, findCadSnap,
   findNearestCadEntity, matchCadProperties, normalizeCadWorkspace, offsetCadEntity, resolveCadCommand,
   snapCadPoint, translateCadEntity, trimCadEntity, updateCadLayer,
@@ -18,6 +18,31 @@ describe('CAD workspace', () => {
     expect(workspace.arrayMode).toBe('rectangular');
     expect(workspace.layers.map((layer) => layer.id)).toEqual(['geometry', 'dimension', 'annotation']);
     expect(workspace.entities).toEqual([]);
+  });
+
+  it('applies the typed dimension value to new dimensions', () => {
+    const workspace = { ...createDefaultCadWorkspace(), dimensionText: '12.5' };
+    const dimension = createCadEntity(workspace, 'dimension', { x: .1, y: .1 }, { x: .5, y: .1 }, 'dim');
+    expect(dimension).toMatchObject({ kind: 'dimension', text: '12.5' });
+    const auto = createCadEntity({ ...workspace, dimensionText: '   ' }, 'dimension', { x: .1, y: .1 }, { x: .5, y: .1 }, 'dim-auto');
+    expect(auto).toMatchObject({ kind: 'dimension' });
+    expect((auto as { text?: string }).text).toBeUndefined();
+  });
+
+  it('keeps dimension text overrides through persistence normalization', () => {
+    const workspace = normalizeCadWorkspace({
+      dimensionText: '  25  ',
+      entities: [{ id: 'd', kind: 'dimension', layerId: 'geometry', color: '#000000', start: { x: 0, y: 0 }, end: { x: .4, y: 0 }, mode: 'linear', text: '25±0.1' }],
+    });
+    expect(workspace.dimensionText).toBe('25');
+    expect(workspace.entities[0]).toMatchObject({ kind: 'dimension', text: '25±0.1' });
+  });
+
+  it('bounds array offsets to the configured counts', () => {
+    const rectangular = { ...createDefaultCadWorkspace(), arrayMode: 'rectangular' as const, arrayRows: 20, arrayColumns: 20 };
+    expect(createArrayOffsets(rectangular, { x: .05, y: .05 })).toHaveLength(399);
+    const polar = { ...createDefaultCadWorkspace(), arrayMode: 'polar' as const, arrayCount: 36 };
+    expect(createArrayOffsets(polar, { x: .05, y: .05 })).toHaveLength(35);
   });
 
   it('falls back to a valid active layer when persisted state references a missing layer', () => {

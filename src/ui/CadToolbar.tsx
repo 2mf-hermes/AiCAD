@@ -84,7 +84,15 @@ export function CadToolbar({ value, onChange }: Props) {
           {value.layers.map((layer) => <input key={`rename-${layer.id}`} className="cad-ribbon__layer-rename" aria-label={`重新命名 ${layer.name}`} value={layer.name} onChange={(event) => updateLayer(layer.id, { name: event.target.value })} />)}
         </div>}
       </div>
-      {value.activeTool === 'dimension' && <label className="cad-ribbon__select">尺寸類型<select value={value.dimensionMode} onChange={(event) => onChange({ ...value, dimensionMode: event.target.value as DimensionMode })}>{DIMENSION_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label>}
+      {value.activeTool === 'dimension' && <><label className="cad-ribbon__select">尺寸類型<select value={value.dimensionMode} onChange={(event) => onChange({ ...value, dimensionMode: event.target.value as DimensionMode })}>{DIMENSION_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label><label className="cad-ribbon__number">尺寸數值<input type="text" className="cad-ribbon__dimension-value" value={value.dimensionText} placeholder="自動量測" onChange={(event) => {
+        const dimensionText = event.target.value.slice(0, 40);
+        // 數值同時套用到新畫的尺寸與當前選取的尺寸標註；清空即恢復自動量測。
+        const picked = new Set(value.selectedEntityIds);
+        const entities = value.selectedEntityIds.length
+          ? value.entities.map((entity) => entity.kind === 'dimension' && picked.has(entity.id) ? { ...entity, text: dimensionText.trim() ? dimensionText : undefined } : entity)
+          : value.entities;
+        onChange({ ...value, dimensionText, entities });
+      }} /></label></>}
       {value.activeTool === 'array' && <>
         <label className="cad-ribbon__select">陣列<select value={value.arrayMode} onChange={(event) => onChange({ ...value, arrayMode: event.target.value as ArrayMode })}>{ARRAY_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label>
         {value.arrayMode === 'rectangular' ? <><NumberControl label="列" value={value.arrayRows} min={1} max={20} onChange={(arrayRows) => onChange({ ...value, arrayRows })} /><NumberControl label="欄" value={value.arrayColumns} min={1} max={20} onChange={(arrayColumns) => onChange({ ...value, arrayColumns })} /></> : <NumberControl label="數量" value={value.arrayCount} min={2} max={36} onChange={(arrayCount) => onChange({ ...value, arrayCount })} />}

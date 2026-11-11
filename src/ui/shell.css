@@ -283,6 +283,14 @@
 .cad-entity text { stroke: none; font: 20px ui-monospace, SFMono-Regular, Consolas, monospace; }
 .cad-entity--selected { filter: drop-shadow(0 0 3px var(--accent)); stroke-width: 3; }
 .cad-entity--draft { opacity: .75; stroke-dasharray: 7 5; }
+/* 圖塊名稱標籤：建立圖塊後顯示在成員物件中心上方，純標示、不攔截指標。 */
+.cad-block-tag {
+  pointer-events: none;
+  fill: var(--accent);
+  stroke: none;
+  font: 600 19px ui-monospace, SFMono-Regular, Consolas, monospace;
+  opacity: .85;
+}
 .cad-snap { pointer-events: none; stroke: #e11d48; stroke-width: 3; fill: none; vector-effect: non-scaling-stroke; }
 .cad-snap text { stroke: white; stroke-width: 5px; fill: #be123c; font-size: 24px; font-weight: 700; paint-order: stroke; }
 .cad-snap--midpoint path { fill: rgb(255 255 255 / .65); }
@@ -494,13 +502,15 @@
 }
 .dimrow {
   display: grid;
-  grid-template-columns: 1fr 88px 26px;
+  /* minmax(0, 1fr)：讓輸入框可以收縮，避免 intrinsic 寬度把整列（含刪除鈕）撐出區塊外。 */
+  grid-template-columns: minmax(0, 1fr) 88px 26px;
   gap: var(--sp-2);
   align-items: center;
 }
 .dimrow .input {
   height: 27px;
   font-size: var(--fs-caption);
+  min-width: 0;
 }
 
 /* ---- 遮罩清單 ----------------------------------------------------------- */
@@ -691,6 +701,9 @@
 /* 標題欄開啟後才出現的輸入區：左側細線表示它從屬於上方開關。 */
 .intent-subblock {
   display: grid;
+  /* 單一 minmax(0, 1fr) 軌：防止最寬的子列（自訂欄位列）把整個軌道撐大，
+     連帶讓圖面標題輸入框超出區塊邊界。 */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sp-2);
   margin: 2px 0 8px 12px;
   padding-left: var(--sp-3);

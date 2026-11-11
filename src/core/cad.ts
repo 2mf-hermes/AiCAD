@@ -11,7 +11,7 @@ export interface CadBlockDefinition { id: string; name: string; entityIds: strin
 interface CadEntityBase { id: string; layerId: string; color: string; }
 export interface CadLineEntity extends CadEntityBase { kind: 'line'; start: CadPoint; end: CadPoint; }
 export interface CadCircleEntity extends CadEntityBase { kind: 'circle'; center: CadPoint; radius: number; }
-export interface CadDimensionEntity extends CadEntityBase { kind: 'dimension'; start: CadPoint; end: CadPoint; mode: DimensionMode; }
+export interface CadDimensionEntity extends CadEntityBase { kind: 'dimension'; start: CadPoint; end: CadPoint; mode: DimensionMode; /** 手動輸入的尺寸數值；未填時由幾何長度自動量測。 */ text?: string; }
 export type CadSegmentEntity = CadLineEntity | CadDimensionEntity;
 export type CadEntity = CadLineEntity | CadCircleEntity | CadDimensionEntity;
 export interface CadSnapResult extends CadPoint { mode: OsnapMode; }
@@ -23,6 +23,8 @@ export interface CadWorkspaceState {
   osnapModes: OsnapMode[];
   command: string;
   dimensionMode: DimensionMode;
+  /** 尺寸標註工具的數值輸入；畫尺寸時帶入，也會同步到當前選取的尺寸。 */
+  dimensionText: string;
   arrayMode: ArrayMode;
   arrayRows: number;
   arrayColumns: number;
@@ -44,6 +46,8 @@ export const CAD_COMMAND_ALIASES: Readonly<Record<string, CadTool>> = {
 export function resolveCadCommand(command: string): CadTool | undefined { return CAD_COMMAND_ALIASES[command.trim().toLowerCase()]; }
 
 const VALID_TOOLS: CadTool[] = ['select', 'line', 'rectangle', 'circle', 'erase', 'copy', 'move', 'dimension', 'trim', 'extend', 'offset', 'rotate', 'mirror', 'block', 'array', 'align', 'matchprop'];
+/** 單張圖面的 CAD 物件總量上限：陣列等大量複製操作超過即停止，避免畫布渲染數萬節點導致崩潰。 */
+export const MAX_CAD_ENTITIES = 2000;
 const VALID_SNAP: OsnapMode[] = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection'];
 const VALID_DIM: DimensionMode[] = ['linear', 'aligned', 'angular', 'continue'];
 const VALID_ARRAY: ArrayMode[] = ['rectangular', 'polar', 'path'];
@@ -71,7 +75,7 @@ export function createDefaultCadWorkspace(): CadWorkspaceState {
     ],
     osnapEnabled: true,
     osnapModes: ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection'],
-    command: '', dimensionMode: 'linear', arrayMode: 'rectangular',
+    command: '', dimensionMode: 'linear', dimensionText: '', arrayMode: 'rectangular',
     arrayRows: 2, arrayColumns: 3, arrayCount: 6,
     blocks: [], entities: [], selectedEntityIds: [],
   };
@@ -87,7 +91,7 @@ function normalizeEntity(value: unknown, layers: CadLayer[]): CadEntity | null {
     const common = { id: raw.id, layerId, color, start: clampPoint(raw.start), end: clampPoint(raw.end) };
     return raw.kind === 'line'
       ? { ...common, kind: 'line' }
-      : { ...common, kind: 'dimension', mode: VALID_DIM.includes(raw.mode as DimensionMode) ? raw.mode as DimensionMode : 'linear' };
+      : { ...common, kind: 'dimension', mode: VALID_DIM.includes(raw.mode as DimensionMode) ? raw.mode as DimensionMode : 'linear', text: typeof raw.text === 'string' && raw.text.trim() ? raw.text.trim().slice(0, 40) : undefined };
   }
   if (raw.kind === 'circle' && isPoint(raw.center) && typeof raw.radius === 'number' && Number.isFinite(raw.radius) && raw.radius > 0) {
     return { id: raw.id, layerId, color, kind: 'circle', center: clampPoint(raw.center), radius: clamp(raw.radius, 0.0001, 1) };
@@ -147,6 +151,7 @@ export function normalizeCadWorkspace(value?: Partial<CadWorkspaceState> | null)
     osnapModes: Array.isArray(value.osnapModes) ? Array.from(new Set(value.osnapModes.filter((mode): mode is OsnapMode => VALID_SNAP.includes(mode as OsnapMode)))) : defaults.osnapModes,
     command: typeof value.command === 'string' ? value.command.slice(0, 80) : '',
     dimensionMode: VALID_DIM.includes(value.dimensionMode as DimensionMode) ? value.dimensionMode as DimensionMode : defaults.dimensionMode,
+    dimensionText: typeof value.dimensionText === 'string' ? value.dimensionText.trim().slice(0, 40) : defaults.dimensionText,
     arrayMode: VALID_ARRAY.includes(value.arrayMode as ArrayMode) ? value.arrayMode as ArrayMode : defaults.arrayMode,
     arrayRows: clamp(Number.isFinite(value.arrayRows) ? Math.round(value.arrayRows!) : defaults.arrayRows, 1, 20),
     arrayColumns: clamp(Number.isFinite(value.arrayColumns) ? Math.round(value.arrayColumns!) : defaults.arrayColumns, 1, 20),
@@ -344,7 +349,10 @@ export function createCadEntity(workspace: CadWorkspaceState, tool: 'line' | 'ci
   if (!layer || layer.locked || !layer.visible || distance(start, end) < 0.006) return null;
   const base = { id, layerId: layer.id, color: layer.color };
   if (tool === 'circle') return { ...base, kind: 'circle', center: start, radius: distance(start, end) };
-  if (tool === 'dimension') return { ...base, kind: 'dimension', start, end, mode: workspace.dimensionMode };
+  if (tool === 'dimension') {
+    const text = workspace.dimensionText.trim().slice(0, 40);
+    return { ...base, kind: 'dimension', start, end, mode: workspace.dimensionMode, text: text || undefined };
+  }
   return { ...base, kind: 'line', start, end };
 }
 

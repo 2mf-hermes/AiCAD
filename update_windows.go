@@ -794,9 +794,30 @@ func updateStageDir() (string, error) {
    失敗一律忽略：這是整理工作，不該影響啟動。
    --------------------------------------------------------------------------- */
 
+// removeStaleExecutable 刪除上一輪更新留下的舊執行檔（AiCad.exe.old）。
+// 更新接手的順序是：前一行程先讓出實例鎖 → 啟動新行程 → 前一行程再多活數百毫秒才退場。
+// 新行程因此會在前一行程仍存活時就跑到清理，此時 AiCad.exe.old 的映像檔還被鎖住，
+// 單次刪除必失敗 —— 這正是「更新重開後舊檔要再關掉重開一次才會消失」的原因。
+// 改成背景短週期重試，檔案一解鎖就清掉，使用者不必再手動重啟。
+func removeStaleExecutable(path string) {
+	if err := os.Remove(path); err == nil {
+		return
+	}
+	go func() {
+		// 舊行程約數百毫秒退場；留 15 秒餘裕涵蓋防毒掃描等較慢的釋放情境。
+		deadline := time.Now().Add(15 * time.Second)
+		for time.Now().Before(deadline) {
+			time.Sleep(500 * time.Millisecond)
+			if err := os.Remove(path); err == nil {
+				return
+			}
+		}
+	}()
+}
+
 func cleanupAfterUpdate() {
 	if exe, err := os.Executable(); err == nil {
-		_ = os.Remove(exe + staleSuffix)
+		removeStaleExecutable(exe + staleSuffix)
 	}
 	dir, err := updateStageDir()
 	if err != nil {

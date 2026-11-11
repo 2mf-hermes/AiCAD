@@ -162,6 +162,7 @@ export const zhHant = {
     titleInpaint: '局部重繪',
     titleEngine: '引擎與歷程',
     imageEngine: '出圖引擎',
+    imageEngineHint: '運作方式：提示語引擎彙整圖面規格與草稿後，交由出圖模型生成整張圖面；遮罩局部重繪會送出圖模型處理，未另選局部重繪模型時跟隨主出圖模型。',
     disabledSuffix: '（未啟用）',
     noRefine: '不精煉提示語',
     refineWith: (name: string) => `以 ${name} 精煉`,

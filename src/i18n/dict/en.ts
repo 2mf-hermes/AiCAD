@@ -156,6 +156,7 @@ export const en: Dict = {
     titleInpaint: 'Inpainting',
     titleEngine: 'Engine & history',
     imageEngine: 'Image engine',
+    imageEngineHint: 'How it works: the prompt engine compiles your sheet specs and draft, then the image model renders the full drawing. Masked regions go to the inpaint model, falling back to the primary image model when unset.',
     disabledSuffix: ' (disabled)',
     noRefine: 'No prompt refinement',
     refineWith: (name) => `Refine with ${name}`,

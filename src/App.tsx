@@ -820,6 +820,7 @@ function Workspace({
                 onChange={(activeImageProvider) => onSettings({ ...settings, activeImageProvider })}
                 options={imageProviderOptions}
               />
+              <p className="field__hint">{t.right.imageEngineHint}</p>
             </Section>
 
             <Section variant="block" title={t.right.masks} aside={<span className="field__hint num">{masks.length}</span>}>

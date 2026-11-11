@@ -3,8 +3,8 @@ import type { Artboard, MaskRegion } from '../core/types';
 import type { FurniturePrimitive } from '../core/sheetFurniture';
 import {
   alignCadEntities, cadToleranceForViewport, createArrayOffsets, createCadBlock, createCadEntity, createCadRectangle,
-  deleteCadEntities, editableCadEntityIds, expandCadBlockSelection, extendCadEntity, findCadSnap,
-  findNearestCadEntity, isCadEntityEditable, matchCadProperties, mirrorCadEntity, offsetCadEntity,
+  deleteCadEntities, editableCadEntityIds, entityAnchor, expandCadBlockSelection, extendCadEntity, findCadSnap,
+  findNearestCadEntity, isCadEntityEditable, matchCadProperties, MAX_CAD_ENTITIES, mirrorCadEntity, offsetCadEntity,
   rotateCadEntity, translateCadEntity, trimCadEntity,
   type CadEntity, type CadPoint, type CadSnapResult, type CadTool, type CadWorkspaceState,
 } from '../core/cad';
@@ -154,7 +154,7 @@ export function DrawingCanvas({
     }
     if (tool === 'copy' && hit) {
       const ids = editableCadEntityIds(cadWorkspace, expandCadBlockSelection(cadWorkspace, cadWorkspace.selectedEntityIds.includes(hit.id) ? cadWorkspace.selectedEntityIds : [hit.id]));
-      const originals = cadWorkspace.entities.filter((entity) => ids.includes(entity.id));
+      const originals = cadWorkspace.entities.filter((entity) => ids.includes(entity.id)).slice(0, Math.max(0, MAX_CAD_ENTITIES - cadWorkspace.entities.length));
       if (!originals.length) return;
       const cloneIds = originals.map(() => createSafeId('cad'));
       const clones = originals.map((entity, index) => translateCadEntity(entity, { x: 0, y: 0 }, cloneIds[index]));
@@ -166,13 +166,24 @@ export function DrawingCanvas({
     if (tool === 'array' && hit) {
       const ids = editableCadEntityIds(cadWorkspace, expandCadBlockSelection(cadWorkspace, cadWorkspace.selectedEntityIds.includes(hit.id) ? cadWorkspace.selectedEntityIds : [hit.id]));
       const sources = cadWorkspace.entities.filter((entity) => ids.includes(entity.id));
-      const clones = createArrayOffsets(cadWorkspace, { x: 0.055, y: 0.055 }).flatMap((delta) => sources.map((entity) => translateCadEntity(entity, delta, createSafeId('cad'))));
+      // 陣列上限：列×欄（或數量）×選取物件數可能爆量，超過 MAX_CAD_ENTITIES 即停止複製，避免畫布塞進數萬節點而崩潰。
+      const room = Math.max(0, MAX_CAD_ENTITIES - cadWorkspace.entities.length);
+      const clones: CadEntity[] = [];
+      for (const delta of createArrayOffsets(cadWorkspace, { x: 0.055, y: 0.055 })) {
+        for (const entity of sources) {
+          if (clones.length >= room) break;
+          clones.push(translateCadEntity(entity, delta, createSafeId('cad')));
+        }
+        if (clones.length >= room) break;
+      }
       if (clones.length) commitWorkspace({ ...cadWorkspace, entities: [...cadWorkspace.entities, ...clones], selectedEntityIds: clones.map((entity) => entity.id) });
       return;
     }
-    if (tool === 'block' && hit) {
-      const ids = cadWorkspace.selectedEntityIds.includes(hit.id) ? cadWorkspace.selectedEntityIds : [hit.id];
-      commitWorkspace(createCadBlock(cadWorkspace, ids, createSafeId('block'), `Block ${cadWorkspace.blocks.length + 1}`));
+    if (tool === 'block') {
+      // 建立圖塊以目前選取為對象：先選取物件、再點「建立圖塊」；沒有選取時也可直接點在任一物件上。
+      const picked = cadWorkspace.selectedEntityIds.length ? cadWorkspace.selectedEntityIds : hit ? [hit.id] : [];
+      const members = editableCadEntityIds(cadWorkspace, expandCadBlockSelection(cadWorkspace, picked));
+      if (members.length) commitWorkspace(createCadBlock(cadWorkspace, members, createSafeId('block'), `Block ${cadWorkspace.blocks.length + 1}`));
       return;
     }
     if (tool === 'matchprop' && hit) {
@@ -306,6 +317,14 @@ export function DrawingCanvas({
       {showGrid && <div className="sheet__grid" />}
         <svg className="cad-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="CAD 物件">
           {visibleEntities.map((entity) => <CadShape key={entity.id} entity={entity} selected={selected.has(entity.id)} />)}
+          {cadWorkspace.blocks.map((block) => {
+            const members = cadWorkspace.entities.filter((entity) => block.entityIds.includes(entity.id));
+            if (!members.length) return null;
+            const anchors = members.map(entityAnchor);
+            const cx = anchors.reduce((sum, point) => sum + point.x, 0) / anchors.length * 1000;
+            const cy = anchors.reduce((sum, point) => sum + point.y, 0) / anchors.length * 1000;
+            return <text key={`block-tag-${block.id}`} className="cad-block-tag" x={cx} y={cy - 16} textAnchor="middle">{block.name}</text>;
+          })}
           {cadDraft && (cadWorkspace.activeTool === 'rectangle'
             ? createCadRectangle(cadWorkspace, cadDraft.start, cadDraft.end, ['draft-1', 'draft-2', 'draft-3', 'draft-4']).map((entity) => <CadShape key={entity.id} entity={entity} selected draft />)
             : <CadShape entity={createCadEntity(cadWorkspace, cadWorkspace.activeTool as 'line' | 'circle' | 'dimension', cadDraft.start, cadDraft.end, 'draft') ?? { id: 'draft', kind: 'line', layerId: '', color: '#5EA2FF', start: cadDraft.start, end: cadDraft.end }} selected draft />)}
@@ -394,7 +413,9 @@ function CadShape({ entity, selected, draft = false }: { entity: CadEntity; sele
   if (entity.kind === 'dimension') {
     const x1 = entity.start.x * 1000; const y1 = entity.start.y * 1000; const x2 = entity.end.x * 1000; const y2 = entity.end.y * 1000;
     const length = Math.round(Math.hypot(x2 - x1, y2 - y1));
-    return <g className={className} stroke={entity.color} fill={entity.color}><line x1={x1} y1={y1} x2={x2} y2={y2} /><circle cx={x1} cy={y1} r="5" /><circle cx={x2} cy={y2} r="5" /><text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 10} textAnchor="middle">{length}</text></g>;
+    // 手動輸入的尺寸數值優先顯示；未輸入時沿用幾何量測值。
+    const label = entity.text && entity.text.trim() ? entity.text : String(length);
+    return <g className={className} stroke={entity.color} fill={entity.color}><line x1={x1} y1={y1} x2={x2} y2={y2} /><circle cx={x1} cy={y1} r="5" /><circle cx={x2} cy={y2} r="5" /><text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 10} textAnchor="middle">{label}</text></g>;
   }
   return <line className={className} x1={entity.start.x * 1000} y1={entity.start.y * 1000} x2={entity.end.x * 1000} y2={entity.end.y * 1000} stroke={entity.color} />;
 }
