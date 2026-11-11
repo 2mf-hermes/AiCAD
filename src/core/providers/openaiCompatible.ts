@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { apiUrl, fetchImageAsBase64, getJson, isTimeout, postJson, postMultipart, withApiPrefix } from '../net/transport';
+import { httpFailureReason } from '../net/friendly';
 import { systemInstructionFor } from '../prompt/builder';
 import {
   ProviderError,
@@ -302,13 +303,14 @@ async function toOpenAIAlphaMask(maskBase64: string): Promise<string> {
 
 function wrap(e: unknown, id: ProviderId): ProviderError {
   if (e instanceof ProviderError) return e;
-  const msg = e instanceof Error ? e.message : String(e);
+  const raw = e instanceof Error ? e.message : String(e);
   const status = (e as { status?: number })?.status;
   let hint: string | undefined;
   if (status === 401 || status === 403) hint = '請確認 API Key 與端點是否相符';
   else if (status === 404) hint = 'Base URL 或端點路徑不符；Base URL 只填服務位址就好，路徑由程式自動補齊';
   else if (status === 429) hint = '已達速率上限，稍後重試或降低併發';
-  else if (isTimeout(e) || /timeout|逾時|abort/i.test(msg))
+  else if (isTimeout(e) || /timeout|逾時|abort/i.test(raw))
     hint = '請在該引擎設定中調高「逾時秒數」；本地模型或高解析度出圖需要更長時間';
-  return new ProviderError(msg, id, status, hint);
+  // 只把不含來源的那一句帶給使用者；狀態碼仍是內部判斷依據。
+  return new ProviderError(httpFailureReason(status, raw, '服務回應異常，請稍後再試'), id, status, hint);
 }

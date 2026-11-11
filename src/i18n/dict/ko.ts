@@ -181,6 +181,7 @@ export const ko: Dict = {
     readyText: (name) => `텍스트 준비 완료 · ${name}`,
     readyImage: (name) => `이미지 준비 완료 · ${name}`,
     noEngine: '엔진 미설정',
+    failed: '생성에 실패했습니다. 설정 또는 네트워크를 확인한 뒤 다시 시도하세요.',
     preparing: '준비 중',
     maskMode: '영역 선택',
     viewMode: '보기 모드',

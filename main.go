@@ -562,7 +562,10 @@ func humanNetError(err error) string {
 	case strings.Contains(s, "certificate"):
 		return "TLS 憑證驗證失敗 — 中轉站憑證可能有問題"
 	}
-	return "連線失敗: " + s
+	if updateDebugEnabled() {
+		return "連線失敗（除錯）: " + s
+	}
+	return "連線失敗 — 請檢查網路連線或服務設定後再試一次"
 }
 
 func fatal(msg string, err error) {

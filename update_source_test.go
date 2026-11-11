@@ -13,7 +13,7 @@
      1. 依序嘗試多個來源，第一個成功的勝出，並記下它是誰（UpdateInfo.Source）
      2. 本機清單（EXE 旁、updates\ 子目錄、使用者快取）可以當來源
      3. 清單內可用相對檔名，以清單自己所在目錄為基準
-     4. 全部失敗時，錯誤訊息必須列出「試過哪些位置」與各自原因，並給出下一步
+   4. 全部失敗時，提示只說「更新失敗，請檢查網路連線後再試一次」—— 不得列出試過的位置或原因（那本身就是下載來源）
      5. 放寬的本機來源不得變成任意檔案下載器 —— 程式目錄外的路徑仍要擋下來
 
    測試會在使用者快取目錄下建暫存資料夾，結束即刪除。
@@ -23,6 +23,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -274,12 +275,13 @@ func TestCheckForUpdateRejectsManifestEscapingAppDir(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 失敗時的可診斷性 —— 這就是原本「取得位置失敗」的體驗問題
+// 失敗時的對外說法 —— 只給「該做什麼」，不給「程式找過哪些位置」
 // ---------------------------------------------------------------------------
 
-func TestCheckForUpdateFailureExplainsWhereItLooked(t *testing.T) {
+func TestCheckForUpdateFailureHidesSource(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "not-there", "update-manifest.json")
 	t.Setenv("AICAD_UPDATE_FEED", missing)
+	t.Setenv("AICAD_UPDATE_DEBUG", "")
 
 	info, err := checkForUpdate("stable")
 	if err == nil {
@@ -287,21 +289,51 @@ func TestCheckForUpdateFailureExplainsWhereItLooked(t *testing.T) {
 	}
 	msg := err.Error()
 
-	// 必須說出「試過哪裡」。
-	if !strings.Contains(msg, missing) {
-		t.Errorf("訊息應包含嘗試過的來源位置，實得: %s", msg)
+	// 提示裡不得出現來源：主機、網址，或本機路徑。
+	if strings.Contains(msg, missing) || mentionsUpdateSource(msg) {
+		t.Errorf("提示不應揭露下載來源，實得: %s", msg)
 	}
-	// 必須說出「為什麼不行」。
-	if !strings.Contains(msg, "原因") {
-		t.Errorf("訊息應包含個別來源的失敗原因，實得: %s", msg)
+	// 但仍要是一句能行動的話。
+	if !strings.Contains(msg, "更新失敗") || !strings.Contains(msg, "網路") {
+		t.Errorf("提示應說明「更新失敗、檢查網路」，實得: %s", msg)
 	}
-	// 必須給下一步，否則使用者只知道失敗。
-	if !strings.Contains(msg, "AICAD_UPDATE_FEED") || !strings.Contains(msg, "update-manifest.json") {
-		t.Errorf("訊息應給出可行動的下一步，實得: %s", msg)
-	}
-	// 這句是使用者回報的原始症狀；修正後不該再是唯一訊息。
+	// 舊的「取得位置失敗」只有一句、且無法行動，不該再是唯一訊息。
 	if strings.TrimSpace(msg) == "取得位置失敗" {
 		t.Error("不該只回一句無法行動的錯誤")
+	}
+}
+
+// 除錯模式才允許把逐項原因帶出來 —— 那是給開發者看的，不是給使用者看的。
+func TestCheckForUpdateFailureDebugKeepsDetail(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "not-there", "update-manifest.json")
+	t.Setenv("AICAD_UPDATE_FEED", missing)
+	t.Setenv("AICAD_UPDATE_DEBUG", "1")
+
+	_, err := checkForUpdate("stable")
+	if err == nil {
+		t.Fatal("來源不存在時應失敗")
+	}
+	if !strings.Contains(err.Error(), missing) {
+		t.Errorf("除錯模式應保留逐項原因，實得: %s", err.Error())
+	}
+}
+
+// friendlyUpdateError 是最後一道把關：任何字串只要提到來源就整句換掉。
+func TestFriendlyUpdateErrorNeverLeaksSource(t *testing.T) {
+	cases := []string{
+		`Get "https://api.github.com/repos/x/y": dial tcp: lookup api.github.com: no such host`,
+		`下載失敗: https://release-assets.githubusercontent.com/x.exe`,
+		`讀取 C:\Users\me\AppData\Local\AiCad\update-manifest.json 失敗`,
+		`http://127.0.0.1:8080/v1/images/generations 回應 502`,
+	}
+	for _, raw := range cases {
+		got := friendlyUpdateError(errors.New(raw))
+		if got == "" {
+			t.Errorf("提示不應為空：%q", raw)
+		}
+		if mentionsUpdateSource(got) {
+			t.Errorf("提示仍含來源 %q：%q", raw, got)
+		}
 	}
 }
 

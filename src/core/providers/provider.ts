@@ -1,4 +1,5 @@
 import { apiUrl, fetchImageAsBase64, getJson, postJson, trimSlash } from '../net/transport';
+import { httpFailureReason, userFacingReason } from '../net/friendly';
 import { systemInstructionFor } from '../prompt/builder';
 import { secrets } from '../secrets';
 import { getAdapter } from './registry';
@@ -212,8 +213,12 @@ function invalid(id: string, message: string): ProviderError {
 
 function rebind(error: unknown, id: string): ProviderError {
   if (error instanceof ProviderError) {
-    return new ProviderError(error.message, id, error.status, error.hint, error.kind);
+    return new ProviderError(userFacingReason(error.message, '服務回應異常，請稍後再試'), id, error.status, error.hint, error.kind);
   }
   const status = (error as { status?: number })?.status;
-  return new ProviderError(error instanceof Error ? error.message : String(error), id, status);
+  return new ProviderError(
+    httpFailureReason(status, error instanceof Error ? error.message : String(error), '服務回應異常，請稍後再試'),
+    id,
+    status,
+  );
 }

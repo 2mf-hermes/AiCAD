@@ -180,6 +180,7 @@ export const zhHans: Dict = {
     readyText: (name) => `文字就绪 · ${name}`,
     readyImage: (name) => `生图就绪 · ${name}`,
     noEngine: '尚未配置引擎',
+    failed: '生成失败，请检查设置或网络后重试。',
     preparing: '准备中',
     maskMode: '选区模式',
     viewMode: '查看模式',

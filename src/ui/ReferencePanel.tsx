@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ReferenceAttachment } from '../core/types';
 import { readReference, REFERENCE_LIMIT } from '../core/references';
+import { userFacingReason } from '../core/net/friendly';
 import { Section } from './primitives';
 export function ReferencePanel({ value, onChange }: { value: ReferenceAttachment[]; onChange: (value: ReferenceAttachment[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -14,7 +15,10 @@ return <Section variant="block" title="參考圖片與檔案">
       try {
         if (files.length + value.length > REFERENCE_LIMIT) throw new Error('最多 4 個附件，每張圖片 2 MiB、文字檔 64 KB');
         onChange([...value, ...await Promise.all(files.map(readReference))]);
-      } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+      } catch (e) {
+        // 只給一句人話：讀取失敗時不揭露來源與內部細節。
+        setError(userFacingReason(e instanceof Error ? e.message : String(e), '讀取參考檔案失敗，請確認檔案格式與大小後再試一次'));
+      } finally { setBusy(false); }
       }} />
       <button type="button" className="btn btn--secondary reference-picker__button" disabled={busy || value.length >= REFERENCE_LIMIT} onClick={() => inputRef.current?.click()}>
         {busy ? '正在讀取…' : '選擇參考檔案'}

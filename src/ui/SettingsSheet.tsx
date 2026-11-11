@@ -22,6 +22,7 @@ import { hostVersion, isDesktop } from '../core/host';
 import { ADAPTERS, createDefaultConfig } from '../core/providers/registry';
 import { createProvider } from '../core/providers/provider';
 import { apiPathOf, stripApiPath } from '../core/net/transport';
+import { userFacingReason } from '../core/net/friendly';
 import type { ProviderConfig, ProviderId, ProviderType } from '../core/providers/types';
 import { ProviderError } from '../core/providers/types';
 import { maskSecret, secrets } from '../core/secrets';
@@ -516,7 +517,7 @@ function ModelsPane({
       const found = await createProvider(cfg).getModels(ctrl.signal);
       setModels(found); setProbe({ kind: 'ok', message: t.provider.modelsFound(found.length) });
     } catch (e) {
-      setProbe({ kind: 'err', message: e instanceof Error ? e.message : String(e) });
+      setProbe({ kind: 'err', message: userFacingReason(e instanceof Error ? e.message : String(e), '無法取得模型清單，請檢查設定後再試') });
     }
   }, [cfg, secretDraft, t.provider]);
 
@@ -531,9 +532,9 @@ function ModelsPane({
       setProbe({ kind: 'ok', message: msg });
     } catch (e) {
       if (e instanceof ProviderError) {
-        setProbe({ kind: 'err', message: e.message, hint: e.hint });
+        setProbe({ kind: 'err', message: userFacingReason(e.message, '測試失敗，請檢查設定後再試'), hint: e.hint });
       } else {
-        setProbe({ kind: 'err', message: e instanceof Error ? e.message : String(e) });
+        setProbe({ kind: 'err', message: userFacingReason(e instanceof Error ? e.message : String(e), '測試失敗，請檢查設定後再試') });
       }
     }
   }, [cfg, secretDraft]);
@@ -1044,7 +1045,8 @@ function UpdatesPane({
          不需要再疊一層提示框。 */
     } catch (e) {
       if (!aliveRef.current) return;
-      setStage({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      // 更新失敗只給一句能行動的話，不揭露下載來源。
+      setStage({ kind: 'error', message: userFacingReason(e instanceof Error ? e.message : String(e), '') });
     }
   }, [onChange, settings]);
 
@@ -1062,13 +1064,13 @@ function UpdatesPane({
       );
       if (!aliveRef.current) return;
       if (final.error) {
-        setStage({ kind: 'error', message: final.error });
+        setStage({ kind: 'error', message: userFacingReason(final.error, '') });
         return;
       }
       setStage({ kind: 'ready', info });
     } catch (e) {
       if (!aliveRef.current) return;
-      setStage({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      setStage({ kind: 'error', message: userFacingReason(e instanceof Error ? e.message : String(e), '') });
     }
   }, [stage]);
 
@@ -1078,7 +1080,7 @@ function UpdatesPane({
       await updateBackend().install();
     } catch (e) {
       if (!aliveRef.current) return;
-      setStage({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      setStage({ kind: 'error', message: userFacingReason(e instanceof Error ? e.message : String(e), '') });
     }
   }, []);
 
@@ -1141,19 +1143,8 @@ function UpdatesPane({
           <UpdateLine stage={stage} supported={supported} />
         </div>
 
-        {(stage.kind === 'available' ||
-          stage.kind === 'downloading' ||
-          stage.kind === 'ready') && (
-          <>
-            {/* 顯示這次是從哪裡取得的。沒有這一行，失敗時使用者只看得到
-                「取得位置失敗」，完全不知道程式去哪裡找過、還能去哪裡找。 */}
-            {stage.info.source && (
-              <p className="sheetmodal__note" style={{ wordBreak: 'break-all' }}>
-                {t.update.source(stage.info.source)}
-              </p>
-            )}
-          </>
-        )}
+        {/* 刻意不顯示更新來源。使用者要的是「有沒有更新、能不能更新」，
+            不是程式從哪個網址抓的 —— 來源屬於內部資訊，不外露。 */}
       </Section>
 
     </>
@@ -1210,10 +1201,11 @@ function UpdateLine({ stage, supported }: { stage: UpdateStage; supported: boole
         </span>
       );
     case 'error':
+      // 只給一句人話：發生什麼、可以怎麼做。不帶來源（網址／主機／路徑）。
       return (
         <span className="probe probe--err">
           <Dot state="danger" /> {t.update.failed}
-          <span className="probe__hint">— {stage.message}</span>
+          {stage.message && <span className="probe__hint">— {stage.message}</span>}
         </span>
       );
   }

@@ -1,10 +1,15 @@
 /* Generation pipeline with finite priority fallback. */
 import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt } from '../prompt/builder';
 import {
+  buildDraftPromptRequest,
+  buildDraftPromptSystemPrompt,
   buildDraftRequest,
   buildDraftSystemPrompt,
+  extractDraftHtml,
   extractTextLabels,
+  labelGuard,
   mergeDraftIntoPrompt,
+  normalizeDraftPrompt,
   normalizeDraftSvg,
   renderDraftPng,
   summarizeDraft,
@@ -153,7 +158,7 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSv
               /* 這一段的任務是「畫出幾何」而不是「寫出幾何描述」，
                  所以整組系統指令換掉，不沿用精煉用的規則。 */
               systemPrompt: buildDraftSystemPrompt(),
-              instruction: 'Answer with the raw <svg> element and nothing else.',
+              instruction: 'Answer with the ```svg block, then the ```html block, and nothing else.',
               images: images.length ? images : undefined,
             },
           },
@@ -171,22 +176,80 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSv
       }),
     );
     const svg = normalizeDraftSvg(result);
-    return svg ? { svg, summary: summarizeDraft(svg), labels: shouldOverlayLabels(intent) ? extractTextLabels(result) : [] } : null;
+    if (!svg) return null;
+    return {
+      svg,
+      /* 同一份線稿的另一種表現：HTML 版本給模型讀結構，也讓人類看得懂。 */
+      html: extractDraftHtml(result, svg),
+      summary: summarizeDraft(svg),
+      labels: shouldOverlayLabels(intent) ? extractTextLabels(result) : [],
+    };
   } catch {
     deps.signal.throwIfAborted();
     return null;
   }
 }
 
-/** 藍圖點陣化失敗（例如環境沒有 canvas）不該毀掉一次生成，只是沒有附圖可用。 */
-async function tryRenderDraft(
-  draft: DraftSvg,
-  intent: DrawingIntent,
-): Promise<{ mimeType: string; base64: string } | undefined> {
+/* ---------------------------------------------------------------------------
+   草稿 → 生圖提示詞
+   ---------------------------------------------------------------------------
+   生圖端點吃的是文字提示詞。草稿的價值是「版面已經定好了」，所以先讓具視圖
+   能力的模型看過草稿畫面與 HTML 原始碼，把版面寫成一段純文字，再走純生成。
+   這一步刻意與生成分離：翻譯拿不到結果時退回草稿幾何摘要，生成不受影響。
+   --------------------------------------------------------------------------- */
+
+async function translateDraftToPrompt(intent: DrawingIntent, draft: DraftSvg, deps: RunDeps): Promise<string | null> {
+  const selected = deps.settings.activeTextProvider;
+  if (selected === 'none') return null;
+
+  /* HTML 的視覺內容就是內嵌的那張 SVG：把它點陣化成模型看得懂的檢視圖，
+     HTML 原始碼另外以文字形式附上。點陣化失敗（例如環境沒有 canvas）就只送
+     原始碼，模型仍能從座標與結構推出版面。 */
+  let view: { mimeType: string; base64: string } | undefined;
   try {
-    return await renderDraftPng(draft.svg, intent.lineStyle);
+    view = await renderDraftPng(draft.svg, intent.lineStyle);
   } catch {
-    return undefined;
+    view = undefined;
+  }
+  const references = (intent.references ?? [])
+    .filter((r) => r.mimeType.startsWith('image/'))
+    .map((r) => ({ mimeType: r.mimeType, base64: r.dataUrl.split(',')[1] ?? '' }));
+  const images = view ? [view, ...references] : references;
+
+  try {
+    const { result } = await executeWithFallback(
+      preferredFirst(deps.settings.providers, selected),
+      'text',
+      async (config, signal) => {
+        const output = await createProvider(config).generate(
+          {
+            mode: 'text',
+            input: {
+              draft: 'Convert the draft sheet into an image-generation prompt.',
+              subject: buildDraftPromptRequest(intent, draft, Boolean(view)),
+              systemPrompt: buildDraftPromptSystemPrompt(),
+              instruction: 'Answer with the prompt paragraph only.',
+              images: images.length ? images : undefined,
+            },
+          },
+          signal,
+        );
+        if (typeof output !== 'string') {
+          throw new ProviderError('提示詞回應格式無效', config.id, undefined, undefined, 'invalid-response');
+        }
+        return output;
+      },
+      deps.signal,
+      (config, attempt) => deps.onProgress({
+        stage: 'refining',
+        note: `${config.name} 正在判讀草稿並改寫生圖提示詞${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}`,
+      }),
+    );
+    /* 模型可能把草稿原封不動吐回來；那不是提示詞，寧可退回摘要。 */
+    return normalizeDraftPrompt(result) || null;
+  } catch {
+    deps.signal.throwIfAborted();
+    return null;
   }
 }
 
@@ -209,65 +272,52 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
     : await resolvePrompt(intent, deps);
   const basePrompt = resolved.prompt;
   deps.signal.throwIfAborted();
+  /* 草稿只判讀一次：翻譯出來的提示詞跟著草稿一起進快取，重試時不必再問一次模型。
+     已有快取時直接沿用上次的翻譯成果 —— 這正是「沿用上次文字模型內容」的意義。 */
+  const finalPrompt = draft
+    ? (reused ? reused.draft?.finalPrompt ?? null : await translateDraftToPrompt(intent, draft, deps))
+    : null;
+  const preparedDraft = draft ? { ...draft, finalPrompt: finalPrompt ?? undefined } : null;
+  deps.signal.throwIfAborted();
   // Publish before image generation: errors/timeouts must not lose successful text work.
-  if (resolved.fromModel) deps.onPrepared?.({ key, draft, basePrompt });
-  const draftImage = draft ? await tryRenderDraft(draft, intent) : undefined;
-  // 兩種版本並存：能不能附圖要等抽到實際引擎才知道，但兩個字串都得先備好。
+  if (resolved.fromModel) deps.onPrepared?.({ key, draft: preparedDraft, basePrompt });
+  /* 翻譯成功就用它；失敗則退回「骨架＋草稿幾何摘要」，資訊較少但仍可生圖。
+     兩者都只給提示詞，草稿圖不隨行 —— 附圖會把請求改成帶圖編輯。 */
   const textualPrompt = draft ? mergeDraftIntoPrompt(basePrompt, draft, false) : basePrompt;
-  const prompt = draftImage && draft ? mergeDraftIntoPrompt(basePrompt, draft, true) : textualPrompt;
+  /* 改寫後的提示詞同樣不准畫字：文字一律由應用程式事後補回。 */
+  const guard = draft ? labelGuard(draft.labels?.length ?? 0) : '';
+  const prompt = finalPrompt
+    ? (guard ? `${finalPrompt}\n\n${guard}` : finalPrompt)
+    : textualPrompt;
   const configs = preferredFirst(deps.settings.providers, deps.settings.activeImageProvider);
   const { width, height } = deps.settings.canvas;
   const images = (intent.references ?? [])
     .filter((r) => r.mimeType.startsWith('image/'))
     .map((r) => ({ mimeType: r.mimeType, base64: r.dataUrl.split(',')[1] ?? '' }));
-  // 草稿排在使用者參考圖之前：模型會把「第一張圖」當成版面依據。
-  const sheetImages = draftImage ? [draftImage, ...images] : images;
   let referenceNotes = '';
   for (const r of intent.references ?? []) {
     if (r.mimeType !== 'text/plain') continue;
     try { referenceNotes += `\nReference file ${r.name}:\n${referenceText(r).slice(0, 4000)}\n`; } catch { /* skip unreadable */ }
   }
-  let usedPrompt = textualPrompt;
   const { result, config } = await executeWithFallback<ImageResult>(
     configs,
     'image',
     async (candidate, signal) => {
-      /* 附上草稿藍圖等於把請求從「純生成」變成「帶圖編輯」：OpenAI 相容介面會因此
-         改走 /images/edits。沒有局部重繪能力的引擎未必實作該端點，硬附圖會讓原本
-         可用的設定直接失效，所以只對有能力處理輸入影像的引擎附圖，其餘仍吃草稿摘要。 */
-      const attachDraft = Boolean(draftImage) && candidate.capabilities.imageInpaint;
-
-      const runImage = (withDraft: boolean) => createProvider(candidate).generate(
+      const output = await createProvider(candidate).generate(
         {
           mode: 'image',
           input: {
-            prompt: withDraft ? prompt : textualPrompt,
+            prompt,
             negativePrompt: buildNegativePrompt(intent),
             width,
             height,
-            images: withDraft ? sheetImages : images.length ? images : undefined,
+            /* 只有使用者自己上傳的參考圖；程式生的草稿不再上車。 */
+            images: images.length ? images : undefined,
             referenceNotes: referenceNotes || undefined,
           },
         },
         signal,
       );
-      let output;
-      usedPrompt = attachDraft ? prompt : textualPrompt;
-      try {
-        output = await runImage(attachDraft);
-      } catch (error) {
-        signal.throwIfAborted();
-        // Only discard our optional blueprint, never user reference images.
-        // A rejected edit endpoint is safe to retry as text-to-image; timeouts are not.
-        const unsupported = error instanceof ProviderError && (
-          [404, 405, 415, 501].includes(error.status ?? 0)
-          || (error.status === 400 && /(?:not support|unsupported|not available).*(?:edit|image input)|(?:edit|image input).*(?:not support|unsupported|not available)/i.test(error.message))
-        );
-        if (!attachDraft || images.length || !unsupported) throw error;
-        deps.onProgress({ stage: 'drawing', note: `${candidate.name} 不支援草稿圖片輸入，改用草稿文字摘要生圖` });
-        usedPrompt = textualPrompt;
-        output = await runImage(false);
-      }
       if (typeof output === 'string') throw new ProviderError('出圖回應格式無效', candidate.id, undefined, undefined, 'invalid-response');
       return output;
     },
@@ -275,7 +325,7 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在繪製圖面${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
   deps.signal.throwIfAborted();
-  return artboard(result, intent, usedPrompt, config, draft?.labels);
+  return artboard(result, intent, prompt, config, draft?.labels);
 }
 
 export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDeps): Promise<Artboard> {

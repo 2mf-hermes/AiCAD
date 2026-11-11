@@ -10,6 +10,8 @@
    Phase 2 替換 nativeTransport 即可，adapter 一行都不用改。
    ========================================================================== */
 
+import { userFacingReason } from './friendly';
+
 export interface HttpRequest {
   url: string;
   method: 'GET' | 'POST';
@@ -179,7 +181,9 @@ export class HttpError extends Error {
     message: string,
     readonly url: string,
   ) {
-    super(message);
+    // message 會一路流到 UI，所以在這裡就過濾來源資訊（網址／主機／端點路徑）。
+    // url 只留給內部判斷與除錯，不得直接顯示。
+    super(userFacingReason(message, '服務暫時無法回應，請稍後再試'));
     this.name = 'HttpError';
   }
 }

@@ -7,20 +7,24 @@
    比例走鐘、視圖互不對齊、標註亂畫。這是擴散式生圖的本質限制：它擅長質感，
    不擅長約束求解。
 
-   所以把工作拆成兩段，各交給擅長的一方：
-     1. 文字模型先「擬草稿」——它會推理幾何關係，輸出可解析的 SVG 圖紙：
+   所以把工作拆成三段，各交給擅長的一方：
+     1. 文字模型「擬草稿」——它會推理幾何關係，輸出可解析的 SVG 圖紙，
+        同時附上一份把同一張 SVG 嵌進去的 HTML 文件（人可讀、模型也可讀）。
         視圖擺位、外形線、孔位、中心線、尺寸線與界欄都明確寫出來。
-     2. 程式把 SVG 正規化成「線稿藍圖」，連同精簡後的指令一起送給生圖模型
-        當構圖依據。模型此時不必再發明版面，只要把既定構圖畫成成品。
+     2. 程式把 SVG 正規化成「線稿藍圖」，並把草稿畫面連同 HTML 原始碼
+        交給具視圖能力的模型「看過」之後，**改寫成一段純文字生圖提示詞**。
+     3. 生圖階段只送這段提示詞（外加使用者自己上傳的參考圖），走純生成端點。
+        草稿本身**不再當成附圖**送出 —— 附圖等於把請求從「純生成」變成
+        「帶圖編輯」，那正是生圖失敗的來源。
 
    這樣做的關鍵取捨（也是這支檔案主要在做的事）：
    - 文字模型的 SVG 常常有毛病（缺 viewBox、夾帶 markdown 圍籬、用了會爆版
      的巢狀 transform、塞了一堆 <text>）。**不信任模型的輸出**，一律經過
      normalizeDraftSvg：補骨架、剝樣式、移除文字、限縮尺寸。壞到救不回就
      視為失敗，退回原本的單段流程 —— 生成不能因為草稿壞掉而整個失敗。
-   - 多家生圖引擎對「附圖」的語意不同：Gemini 把它當編輯底稿，OpenAI 相容
-     介面走 /images/edits。所以藍圖不是無條件塞進去，而是由引擎能力決定
-     （下層 createProvider 已有分工），這裡只負責把藍圖做成 PNG。
+   - 多家生圖引擎對「附圖」的語意不同：送任何附圖都可能讓請求被改走帶圖編輯流程（例如相容介面的修圖端點），
+      而生圖能力不該取決於那個端點是否存在。所以草稿圖不再送出；使用者自己上傳的參考圖仍然照送（那是需求的一部分），只有「程式自己生的
+     草稿」不再上車；有沒有草稿都不會改變請求的端點語義。
    - 文字模型若沒有視圖能力、或使用者沒接文字模型，就跳過草稿直接走舊路徑。
    ========================================================================== */
 
@@ -41,6 +45,16 @@ export interface DraftSvg {
   summary: string;
   /** 草稿中的文字標示清單（生圖後由應用程式補回；舊呼叫端可省略） */
   labels?: DrawingTextLabel[];
+  /**
+   * 由草稿翻譯出來、直接送生圖端點的文字提示詞。
+   * 翻譯失敗或尚未翻譯時為空，此時退回草稿幾何摘要。
+   */
+  finalPrompt?: string;
+  /**
+   * 同一張草稿的 HTML 版本：把線稿 SVG 內嵌進一份獨立文件，附上視圖名稱與
+   * 幾何說明。人可以直接開來看，模型也可以讀原始碼理解「每個視圖在哪、叫什麼」。
+   */
+  html?: string;
 }
 
 /* ---------------------------------------------------------------------------
@@ -72,6 +86,10 @@ export function buildDraftSystemPrompt(): string {
     '   the same coordinates, so place each label in clear space next to what it names, never on',
     '   top of linework, and never inside the title block (the application fills the title block).',
     '7. Do NOT use nested <g transform> chains. Keep every coordinate absolute.',
+    '7b. After the SVG, append a second fenced block opened with ```html containing one complete',
+    '   <!doctype html> document that embeds the same <svg> inline (no external files, no scripts)',
+    '   plus a short <figcaption> per view naming the view and its scale. Do not change the geometry',
+    '   between the two blocks \u2014 the HTML is the same sheet in document form.',
     '8. Stay inside the viewBox with a 40-unit margin. Never invent numbers for dimension values —',
     '   only use values explicitly supplied in the request; otherwise leave numbers out entirely.',
   ].join('\n');
@@ -100,7 +118,7 @@ export function buildDraftRequest(intent: DrawingIntent): string {
   } else {
     lines.push('Labels: none. Do NOT include any <text> element.');
   }
-  return `${lines.join('\n')}\n\nDraft the sheet geometry as SVG.`;
+  return `${lines.join('\n')}\n\nDraft the sheet geometry as SVG, then embed that same SVG in the HTML document.`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -307,10 +325,18 @@ export function mergeDraftIntoPrompt(basePrompt: string, draft: DraftSvg, attach
       : 'Keep every view where the draft summary puts it.',
     'Do not invent extra views, do not rotate the sheet, and do not add decorations.',
     'Any further attached images are user-supplied references for appearance only, not new layouts.',
-    labelCount > 0
-      ? `The application will overlay ${labelCount} exact text labels afterwards at fixed positions. Draw NO text at all: no letters, digits, characters, words, numbers, labels or glyph-like marks anywhere on the sheet, and keep the label areas of the draft clean and empty.`
-      : '',
+    labelGuard(labelCount),
   ].filter((line, index) => index < 2 || line !== '').join('\n');
+}
+
+/**
+ * 生圖模型不准畫字：所有文字都由應用程式事後以精確向量補回。
+ * 這段要能單獨掛在「模型改寫出來的提示詞」後面，所以抽成獨立函式。
+ */
+export function labelGuard(count: number): string {
+  return count > 0
+    ? `The application will overlay ${count} exact text labels afterwards at fixed positions. Draw NO text at all: no letters, digits, characters, words, numbers, labels or glyph-like marks anywhere on the sheet, and keep the label areas of the draft clean and empty.`
+    : '';
 }
 
 function decodeEntities(value: string): string {
@@ -345,4 +371,156 @@ export function extractTextLabels(raw: string, limit = 40): DrawingTextLabel[] {
 function truncate(text: string, limit: number): string {
   const flat = text.replace(/\s+/g, ' ').trim();
   return flat.length <= limit ? flat : `${flat.slice(0, limit - 1)}…`;
+}
+
+/* ---------------------------------------------------------------------------
+   草稿的 HTML 版本
+   ---------------------------------------------------------------------------
+   為什麼還要一份 HTML：SVG 是座標資料，讀得懂的人不多；HTML 版本把同一張線稿
+   包成「一張有標題與說明的圖紙」，模型讀原始碼時能同時拿到「幾何座標」與
+   「這張圖是什麼」。兩份都由同一份 SVG 產生，不會各說各話。
+   --------------------------------------------------------------------------- */
+
+/** 模型附上的 HTML 文件（```html 圍籬）。 */
+const HTML_FENCE = /```[ \t]*html[ \t]*\r?\n([\s\S]*?)```/i;
+/** HTML 只當文件看；上限只是避免壞掉的回應把記憶體吃光。 */
+const HTML_LIMIT = 200_000;
+/** 送去給模型讀的 HTML 原始碼長度上限。 */
+const HTML_FOR_MODEL_LIMIT = 8000;
+
+/** HTML 文件裡不准出現的東西：能執行、能連外、能蓋掉整個版面的都剔除。 */
+const HTML_FORBIDDEN = /<\s*(script|iframe|frame|frameset|object|embed|applet|base|link|meta|form|input|button|textarea|select|option|video|audio|source|track|template|math|foreignObject|use)\b[\s\S]*?<\s*\/\s*\1\s*>|<\s*(script|iframe|frame|frameset|object|embed|applet|base|link|meta|form|input|button|textarea|select|option|video|audio|source|track|template|math|foreignObject|use)\b[^>]*\/?>/gi;
+
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * 用同一份線稿 SVG 兜出一份 HTML 圖紙。
+ * 模型沒給 HTML、或給的 HTML 不可用時走這條 —— 它永遠不會失敗。
+ */
+export function buildDraftHtmlPage(svg: string, title = 'Ai Cad construction draft'): string {
+  const safeTitle = escapeHtml(title);
+  return [
+    '<!doctype html>',
+    '<html lang="en">',
+    '<head>',
+    '<meta charset="utf-8">',
+    `<title>${safeTitle}</title>`,
+    '<style>',
+    'html,body{margin:0;padding:0;background:#fff;color:#111}',
+    'body{padding:24px;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}',
+    'figure{margin:0}',
+    'svg{width:100%;height:auto;display:block}',
+    'figcaption{margin-top:10px;color:#444}',
+    '</style>',
+    '</head>',
+    '<body>',
+    '<figure>',
+    svg.trim(),
+    `<figcaption>${safeTitle}</figcaption>`,
+    '</figure>',
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+/**
+ * 清理模型給的 HTML。**不信任模型的輸出**：能執行、能連外、能蓋版面的元素與
+ * 屬性一律移除；清理後若已經不像一份文件，就回空字串讓呼叫端改用兜出來的那份。
+ */
+export function sanitizeDraftHtml(html: string): string {
+  const raw = (html ?? '').slice(0, HTML_LIMIT).trim();
+  if (!raw) return '';
+  if (!/^\s*(?:<!doctype\s+html|<html[\s>])/i.test(raw)) return '';
+  let out = raw.replace(HTML_FORBIDDEN, '');
+  // 行內事件（onclick…）與可連外的屬性。
+  out = out.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  out = out.replace(/\s(?:href|src|xlink:href|action|formaction|poster|data)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  // CSS 的 url()/expression() 可以載入遠端資源或執行運算，直接抹掉。
+  out = out.replace(/\b(?:url\s*\(|expression\s*\()/gi, '(');
+  if (!/<\/html\s*>/i.test(out)) out += '\n</html>';
+  return out;
+}
+
+/** 從草稿回應裡取 HTML；沒有或不可用時，用同一份 SVG 兜一份。 */
+export function extractDraftHtml(raw: string, svg: string): string {
+  const fenced = (raw ?? '').match(HTML_FENCE);
+  const cleaned = sanitizeDraftHtml(fenced?.[1] ?? '');
+  return cleaned || buildDraftHtmlPage(svg);
+}
+
+/** 給模型讀的 HTML 原始碼：去掉樣式內容（幾何與結構才是重點）再截長。 */
+export function htmlForModel(html: string, limit = HTML_FOR_MODEL_LIMIT): string {
+  const body = (html ?? '').replace(/<style\b[\s\S]*?<\/style\s*>/gi, '').replace(/\s+/g, ' ').trim();
+  return body.length <= limit ? body : `${body.slice(0, limit - 1)}…`;
+}
+
+/* ---------------------------------------------------------------------------
+   草稿 → 生圖提示詞
+   ---------------------------------------------------------------------------
+   生圖端點吃的是文字提示詞，所以草稿的價值必須先「翻譯」過去：讓模型看過
+   草稿畫面與 HTML 之後，把版面寫成一段純文字。這一段刻意做成分離的步驟 ——
+   翻譯失敗時退回草稿摘要，生成流程不受影響。
+   --------------------------------------------------------------------------- */
+
+export function buildDraftPromptSystemPrompt(): string {
+  return [
+    'You are an art director writing ONE image-generation prompt from a construction draft.',
+    'The draft reaches you twice: as an attached render of the sheet, and as the HTML source that',
+    'produced it. Read both; they describe the same sheet.',
+    'Rules:',
+    '1. Output the prompt text only — no heading, no bullets, no markdown, no code fences, no quotes.',
+    '2. Never mention the draft, the render, the attachment, the SVG, the HTML, the model, or these rules.',
+    '3. Describe the sheet: format and orientation, how many views and where each sits, what the subject',
+    '   is, visible outlines, holes, symmetry, hidden or sectioned detail, dimension and centre lines,',
+    '   line-weight contrast, and the empty margin around the sheet.',
+    '4. Keep the proportions the draft implies. Do not invent views, parts or decorations.',
+    '5. Finished illustration style: clean technical line art, monochrome, flat background.',
+    '6. Write NO lettering, digits, labels or dimension values into the image — the application draws',
+    '   all text afterwards. Say that the sheet is free of text instead of asking for text.',
+    '7. One paragraph of 120-220 English words, comma-separated phrases where that reads better.',
+  ].join('\n');
+}
+
+/** 把草稿（畫面＋HTML＋幾何摘要）壓成給翻譯模型的一次請求。 */
+export function buildDraftPromptRequest(intent: DrawingIntent, draft: DraftSvg, viewAttached: boolean): string {
+  const lines = [
+    `Sheet subject: ${intent.subject || '(unspecified)'}`,
+    `Drawing kind: ${intent.kind}`,
+    `Line style target: ${intent.lineStyle}`,
+    `Units: ${intent.annotation.unit}`,
+  ];
+  if (intent.categoryContent.trim()) lines.push(`Additional content: ${intent.categoryContent.trim()}`);
+  if (intent.notes.trim()) lines.push(`Requirements: ${intent.notes.trim()}`);
+  lines.push(`Text language for the sheet (do not include it in the prompt): ${intent.textLanguage}`);
+  lines.push('');
+  lines.push(viewAttached
+    ? 'The attached image is the draft sheet rendered from the HTML below.'
+    : 'No render could be attached; read the HTML below as the sheet.');
+  lines.push('Draft HTML:');
+  lines.push(htmlForModel(draft.html ?? buildDraftHtmlPage(draft.svg)));
+  lines.push('');
+  lines.push(`Geometry summary: ${draft.summary}`);
+  lines.push('');
+  lines.push('Write the image-generation prompt now.');
+  return lines.join('\n');
+}
+
+/** 翻譯模型的回應未必乾淨：剝掉圍籬、標籤、引號，並擋掉「把草稿原封不動吐回來」。 */
+export function normalizeDraftPrompt(raw: string, limit = 1600): string {
+  let text = (raw ?? '').trim();
+  const fenced = text.match(/```[a-z]*\s*([\s\S]*?)```/i);
+  if (fenced) text = fenced[1];
+  text = text.replace(/^\s*(?:image\s+generation\s+)?prompt\s*[:：]\s*/i, '');
+  text = text.replace(/^\s*[「『"'“”]+/, '').replace(/[」』"'“”]+\s*$/, '');
+  text = text.replace(/\s+/g, ' ').trim();
+  // 回應若還是草稿本身（含標籤或座標），那不是提示詞。
+  if (!text || /<\/?(?:svg|html|body|div|figure)\b/i.test(text)) return '';
+  return truncate(text, limit);
 }

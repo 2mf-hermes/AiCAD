@@ -182,6 +182,7 @@ export const en: Dict = {
     readyText: (name) => `Text ready · ${name}`,
     readyImage: (name) => `Image ready · ${name}`,
     noEngine: 'No engine configured',
+    failed: 'Generation failed. Check your settings or network, then try again.',
     preparing: 'Preparing',
     maskMode: 'Region select',
     viewMode: 'View mode',

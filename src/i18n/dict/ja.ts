@@ -181,6 +181,7 @@ export const ja: Dict = {
     readyText: (name) => `テキスト準備完了 · ${name}`,
     readyImage: (name) => `画像準備完了 · ${name}`,
     noEngine: 'エンジン未設定',
+    failed: '生成に失敗しました。設定またはネットワークを確認して再試行してください。',
     preparing: '準備中',
     maskMode: '範囲選択',
     viewMode: '表示モード',

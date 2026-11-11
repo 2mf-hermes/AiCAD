@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { apiUrl, postJson, withApiPrefix } from '../net/transport';
+import { httpFailureReason } from '../net/friendly';
 import { systemInstructionFor } from '../prompt/builder';
 import { ProviderError, type ProviderAdapter, type ProviderConfig } from './types';
 
@@ -116,5 +117,6 @@ function toProviderError(e: unknown): ProviderError {
       : status === 404
         ? 'Base URL 可能填到端點路徑；只填服務位址即可（程式會自動補 /v1）'
         : undefined;
-  return new ProviderError(msg, 'anthropic', status, hint);
+  // 對外只留不含來源的那一句；狀態碼照舊往上傳給內部判斷。
+  return new ProviderError(httpFailureReason(status, msg, '服務回應異常，請稍後再試'), 'anthropic', status, hint);
 }

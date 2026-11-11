@@ -3,6 +3,7 @@ import { generate, inpaint, type RunProgress } from './core/pipeline/orchestrato
 import { DraftCache, generationKey, type PreparedGeneration } from './core/pipeline/draftCache';
 import { RunFailureDialog } from './ui/RunFailureDialog';
 import { isTimeout, TimeoutError } from './core/net/transport';
+import { userFacingReason } from './core/net/friendly';
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from './core/projects';
 import { ProviderError, type ProviderConfig, type ProviderId } from './core/providers/types';
 import {
@@ -491,7 +492,8 @@ function Workspace({
         // 卻什麼都沒發生」最需要的資訊。
         if (task === 'generate') {
           const message = isTimeout(e) || isTimeout(ctrl.signal.reason)
-            ? t.status.timedOut(limitSec) : e instanceof Error ? e.message : String(e);
+            ? t.status.timedOut(limitSec)
+            : userFacingReason(e instanceof Error ? e.message : String(e), t.status.failed);
           setGenerationFailure({ key, message });
           setFailureOpen(true);
         }
@@ -499,8 +501,12 @@ function Workspace({
           setRun({ kind: 'error', message: t.status.timedOut(limitSec) });
           return;
         }
-        if (e instanceof ProviderError) setRun({ kind: 'error', message: e.message, hint: e.hint });
-        else setRun({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+        // 失敗訊息只留「發生什麼、下一步」，不帶來源（網址／主機／端點）。
+        if (e instanceof ProviderError) {
+          setRun({ kind: 'error', message: userFacingReason(e.message, t.status.failed), hint: e.hint });
+        } else {
+          setRun({ kind: 'error', message: userFacingReason(e instanceof Error ? e.message : String(e), t.status.failed) });
+        }
       } finally {
         window.clearTimeout(deadline);
         if (abortRef.current === ctrl) abortRef.current = null;

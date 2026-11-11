@@ -435,7 +435,7 @@ func (s *updateState) finish(path, ver string, err error) {
 	defer s.mu.Unlock()
 	s.running = false
 	if err != nil {
-		s.progress = updateProgress{Error: err.Error()}
+		s.progress = updateProgress{Error: friendlyUpdateError(err)}
 		return
 	}
 	s.stagedPath = path
@@ -683,9 +683,8 @@ func updateInfoFromReleases(src updateSource, data []byte, channel string) (*upd
 
 // checkForUpdate 依序嘗試所有來源，第一個成功的勝出。
 //
-// 全部失敗時，把「試過哪些位置」與「各自的原因」一起回報。先前只回一句網路
-// 錯誤，使用者只知道「取得位置失敗」卻不知道程式去哪裡找過 —— 這正是要修掉的
-// 體驗問題。訊息最後附上可行動的下一步。
+// 但「試過哪些位置」本身就是下載來源（網址、本機路徑），不該出現在給使用者看
+// 的提示裡。全部失敗時預設只回一句能行動的話；要逐項原因請設 AICAD_UPDATE_DEBUG=1。
 func checkForUpdate(channel string) (*updateInfo, error) {
 	sources := updateSources()
 	tried := make([]string, 0, len(sources))
@@ -708,12 +707,11 @@ func checkForUpdate(channel string) (*updateInfo, error) {
 	}
 
 	updater.setCheckContext("", false)
-	return nil, fmt.Errorf(
-		"無法取得更新來源位置。已嘗試：\n%s\n原因：\n%s\n\n"+
-			"可行做法：確認可連上 GitHub（預設來源）；或在 AiCad.exe 旁邊放一份 update-manifest.json（"+
-			"亦可放 updates 子目錄），清單內的 url 可寫相對檔名；或以環境變數 AICAD_UPDATE_FEED 指定清單位置。",
-		strings.Join(tried, "、"), strings.Join(problems, "\n"),
-	)
+	if updateDebugEnabled() {
+		return nil, fmt.Errorf("更新失敗（除錯）：嘗試 %s；原因 %s",
+			strings.Join(tried, "、"), strings.Join(problems, "；"))
+	}
+	return nil, errUpdateUnreachable
 }
 
 /* ---------------------------------------------------------------------------
@@ -1105,7 +1103,7 @@ func updateCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 	info, err := checkForUpdate(channel)
 	if err != nil {
-		writeStoreJSON(w, storeReply{Error: err.Error()})
+		writeStoreJSON(w, storeReply{Error: friendlyUpdateError(err)})
 		return
 	}
 	if info == nil {
@@ -1116,7 +1114,7 @@ func updateCheckHandler(w http.ResponseWriter, r *http.Request) {
 
 	raw, err := json.Marshal(info)
 	if err != nil {
-		writeStoreJSON(w, storeReply{Error: "更新資訊序列化失敗: " + err.Error()})
+		writeStoreJSON(w, storeReply{Error: "更新失敗，請稍後再試一次"})
 		return
 	}
 	writeStoreJSON(w, storeReply{OK: true, Data: string(raw)})
@@ -1125,17 +1123,17 @@ func updateCheckHandler(w http.ResponseWriter, r *http.Request) {
 func updateStartHandler(w http.ResponseWriter, r *http.Request) {
 	var info updateInfo
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&info); err != nil {
-		writeStoreJSON(w, storeReply{Error: "請求格式錯誤: " + err.Error()})
+		writeStoreJSON(w, storeReply{Error: "更新請求不完整，請重新檢查更新"})
 		return
 	}
 	// 用與 check 相同的基準解析一次：非法來源在這裡就被擋下，不會進到背景
 	// goroutine 才失敗（那樣 UI 會先顯示「下載中」再翻臉）。
 	if _, err := downloadSourceFor(info); err != nil {
-		writeStoreJSON(w, storeReply{Error: err.Error()})
+		writeStoreJSON(w, storeReply{Error: friendlyUpdateError(err)})
 		return
 	}
 	if err := updater.begin(); err != nil {
-		writeStoreJSON(w, storeReply{Error: err.Error()})
+		writeStoreJSON(w, storeReply{Error: friendlyUpdateError(err)})
 		return
 	}
 	// 立刻回應，下載在背景跑；進度由 /bridge/update/progress 輪詢。
@@ -1149,7 +1147,7 @@ func updateStartHandler(w http.ResponseWriter, r *http.Request) {
 func updateProgressHandler(w http.ResponseWriter, _ *http.Request) {
 	raw, err := json.Marshal(updater.snapshot())
 	if err != nil {
-		writeStoreJSON(w, storeReply{Error: "進度序列化失敗: " + err.Error()})
+		writeStoreJSON(w, storeReply{Error: "更新進度無法讀取，請重新檢查更新"})
 		return
 	}
 	writeStoreJSON(w, storeReply{OK: true, Data: string(raw)})
@@ -1157,7 +1155,7 @@ func updateProgressHandler(w http.ResponseWriter, _ *http.Request) {
 
 func updateInstallHandler(w http.ResponseWriter, _ *http.Request) {
 	if err := installUpdate(); err != nil {
-		writeStoreJSON(w, storeReply{Error: err.Error()})
+		writeStoreJSON(w, storeReply{Error: friendlyUpdateError(err)})
 		return
 	}
 	writeStoreJSON(w, storeReply{OK: true})

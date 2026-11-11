@@ -6,6 +6,7 @@
    ========================================================================== */
 
 import { apiUrl, postJson, withApiPrefix } from '../net/transport';
+import { httpFailureReason } from '../net/friendly';
 import { systemInstructionFor } from '../prompt/builder';
 import { ProviderError, type ProviderAdapter, type ProviderConfig } from './types';
 
@@ -174,5 +175,6 @@ function toProviderError(e: unknown): ProviderError {
       : status === 403
         ? 'API Key 未啟用 Generative Language API'
         : undefined;
-  return new ProviderError(msg, 'gemini', status, hint);
+  // 對外只留不含來源的那一句；狀態碼照舊往上傳給內部判斷。
+  return new ProviderError(httpFailureReason(status, msg, '服務回應異常，請稍後再試'), 'gemini', status, hint);
 }

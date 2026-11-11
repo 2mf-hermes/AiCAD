@@ -187,6 +187,7 @@ export const zhHant = {
     readyText: (name: string) => `文字就緒 · ${name}`,
     readyImage: (name: string) => `生圖就緒 · ${name}`,
     noEngine: '尚未設定引擎',
+    failed: '產生失敗，請檢查設定或網路後再試。',
     preparing: '準備中',
     maskMode: '選區模式',
     viewMode: '檢視模式',

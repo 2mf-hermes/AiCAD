@@ -7,6 +7,7 @@
    ========================================================================== */
 
 import { getJson, postJson, trimSlash } from '../net/transport';
+import { httpFailureReason } from '../net/friendly';
 import { ProviderError, type ProviderAdapter, type ProviderConfig } from './types';
 
 const DEFAULT_BASE = 'http://127.0.0.1:7860';
@@ -125,5 +126,7 @@ function unwrap(
 function toProviderError(e: unknown, hint?: string): ProviderError {
   if (e instanceof ProviderError) return e;
   const msg = e instanceof Error ? e.message : String(e);
-  return new ProviderError(msg, 'sd-webui', (e as { status?: number })?.status, hint);
+  const status = (e as { status?: number })?.status;
+  // 本機服務的位址同樣算來源，不帶到提示裡。
+  return new ProviderError(httpFailureReason(status, msg, '無法連線本機繪圖服務，請確認服務已啟動'), 'sd-webui', status, hint);
 }
