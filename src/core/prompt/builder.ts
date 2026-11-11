@@ -8,6 +8,7 @@
    ========================================================================== */
 
 import type { DrawingIntent, DrawingKind, LineStyle, MaskRegion, Unit } from '../types';
+import { describeRect, sheetLayout } from '../sheetLayout';
 
 /** 每種圖面類型的視角與構圖骨架 */
 const KIND_SKELETON: Record<DrawingKind, string> = {
@@ -77,6 +78,56 @@ const BASELINE_EXCLUDE = [
   'misspelled labels',
 ];
 
+/** 有實際量測值才算數：空的列不該佔用保留區，也不該出現在圖面上。 */
+export function hasMeasurementRows(intent: DrawingIntent): boolean {
+  return Object.entries(intent.measurements).some(([key, value]) => key.trim() && value.trim());
+}
+
+/**
+ * 生圖前就把「這一塊要留白」講清楚。
+ *
+ * 為什麼不能只靠事後疊圖：模型若把視圖或線稿畫進保留區，之後疊上去的標題欄
+ * 與尺寸列就會直接壓在圖面上（也就是使用者圈起來的那個問題）。所以這裡把
+ * 保留區的百分比座標寫進提示詞，生圖階段就留下空白。
+ */
+export function reservedSheetClause(intent: DrawingIntent): string {
+  const layout = sheetLayout({
+    titleBlock: intent.annotation.titleBlock,
+    measurements: hasMeasurementRows(intent),
+    scaleBar: intent.annotation.scaleBar,
+  });
+  const lines = [
+    `Sheet division: every view, section, dimension line, leader and hatch must stay strictly inside the drawing area at ${describeRect(layout.drawing)}.`,
+  ];
+  if (layout.footer) {
+    lines.push(
+      `Reserved band: keep the band at ${describeRect(layout.footer)} as completely blank white paper — no linework, no partial views, no border decoration, no lettering and no shading inside it.`,
+    );
+  }
+  if (layout.titleBlock) {
+    lines.push(
+      intent.text.renderMode === 'image-model'
+        ? `Title block: draw exactly one ISO 7200 title block in the bottom-right corner at ${describeRect(layout.titleBlock)}, with clean ISO 7200 lettering and no other table, revision strip or sheet-number box; the application does not draw it in this mode.`
+        : `Title block: the application draws an ISO 7200 title block at ${describeRect(layout.titleBlock)} after generation, so leave that rectangle empty as blank title-block geometry and do not draw the title-block frame, cells or text yourself.`,
+    );
+  } else {
+    lines.push(
+      'Title block: this sheet has no title block. Do not draw a title block, title box, revision table, sheet-number box or any text table anywhere on the sheet.',
+    );
+  }
+  if (layout.scaleBar) {
+    lines.push(
+      `Scale bar: the application draws the graphic scale bar at ${describeRect(layout.scaleBar)} after generation; leave that area empty.`,
+    );
+  } else {
+    lines.push('Scale bar: do not draw a graphic scale bar or any ruler graphic.');
+  }
+  lines.push(
+    'Overlap guard: nothing may be drawn on top of another element — dimension geometry must sit clear of the geometry it measures and no annotation may cover a view.',
+  );
+  return lines.join(' ');
+}
+
 function annotationClauses(intent: DrawingIntent): string[] {
   const a = intent.annotation;
   const out: string[] = [];
@@ -88,11 +139,13 @@ function annotationClauses(intent: DrawingIntent): string[] {
   if (a.tolerance) out.push('reserve clear tolerance annotation space next to critical dimensions; do not draw tolerance text or numbers');
   if (a.gdt) out.push('GD&T feature control frames with datum references (flatness, concentricity, perpendicularity)');
   if (a.callouts) out.push('blank balloon callout geometry with straight leader lines terminating in a dot; do not draw balloon numbers');
+  /* 標題欄與比例尺一律由應用程式畫在保留區：即使使用者選「文字由模型產生」，
+     也不讓模型自己排版圖框，否則生圖後才開關標註項目就會壓到既有線稿。 */
   if (a.titleBlock)
     out.push(intent.text.renderMode === 'image-model'
-      ? 'ISO 7200 style title-block geometry in the lower-right corner, with clean legible technical lettering'
-      : 'ISO 7200 style blank title-block geometry in the lower-right corner; reserve clean cells and do not draw title, date, custom fields, scale, unit or sheet-number text');
-  if (a.scaleBar) out.push('graphic scale bar along the lower edge');
+      ? 'one ISO 7200 title block in the bottom-right corner with clean lettering; no revision strip, sheet-number box or extra table'
+      : 'leave the reserved title-block rectangle completely empty as blank title-block geometry; the application renders the ISO 7200 title-block frame, cells and text');
+  if (a.scaleBar) out.push('leave the reserved scale-bar slot completely empty; the application renders the graphic scale bar');
   return out;
 }
 
@@ -106,7 +159,27 @@ function measurementBlock(intent: DrawingIntent): string {
   return `Dimensions supplied to the application overlay. Reserve clear annotation space and keep the geometry consistent with these values, but DO NOT rasterize these strings into the image; the application will render them exactly:\n${payload}`;
 }
 
-/** 產出正向提示語（送給繪圖模型的主體） */
+/**
+ * image-model 模式下的標題欄文字：其餘模式由應用程式精確繪製，
+ * 只有這個模式要把標題、日期與自訂欄位原文交給模型，
+ * 否則使用者填的內容永遠不會出現在圖上。
+ */
+function titleBlockTextBlock(intent: DrawingIntent): string {
+  if (intent.text.renderMode !== 'image-model' || !intent.annotation.titleBlock) return '';
+  const rows: string[] = [];
+  const title = intent.text.title.trim();
+  const date = intent.text.date.trim();
+  if (title) rows.push(`  - Title: ${title}`);
+  if (date) rows.push(`  - Date: ${date}`);
+  for (const field of intent.text.customFields) {
+    const key = field.key.trim();
+    const value = field.value.trim();
+    if (key && value) rows.push(`  - ${key}: ${value}`);
+  }
+  if (rows.length === 0) return '';
+  return `Render all requested technical titles and title-block strings letter by letter inside the title block with clean ISO 7200 engineering lettering:\n${rows.join('\n')}`;
+}
+
 export function buildPositivePrompt(intent: DrawingIntent): string {
   const parts: string[] = [
     `Professional technical drawing. ${KIND_SKELETON[intent.kind]}.`,
@@ -117,7 +190,7 @@ export function buildPositivePrompt(intent: DrawingIntent): string {
     intent.textLanguage === 'none'
       ? 'Sheet text: do not render natural-language labels. Leave label and annotation areas clean for the application overlay; use only essential geometry and standard engineering symbols.'
       : intent.text.renderMode === 'image-model'
-        ? `Sheet text language: ${TEXT_LANGUAGE[intent.textLanguage]}. Render all requested technical titles, labels, notes, callouts and dimension values directly in the image with clean, legible engineering lettering. Title: ${intent.text.title || 'unspecified'}. Date: ${intent.text.date || 'unspecified'}. Custom title-block fields: ${intent.text.customFields.filter((field) => field.key.trim() || field.value.trim()).map((field) => `${field.key}: ${field.value}`).join('; ') || 'none'}.`
+        ? `Sheet text language: ${TEXT_LANGUAGE[intent.textLanguage]}. Render the drawing-area labels, notes, callouts, dimension values and the title-block strings directly in the image with clean, legible engineering lettering; letter them exactly as given, never as pseudo-text.`
         : `Sheet text language: ${TEXT_LANGUAGE[intent.textLanguage]}. Do NOT rasterize titles, labels, notes, callouts, dimension values, or other natural-language text into the generated image. Leave clean unobstructed spaces for the application to render exact vector-like text overlays. Preserve only geometry, dimension/leader line geometry, arrowheads, and standard engineering symbols. Never invent pseudo-text, placeholder glyphs, warped letters, blurred lettering, or decorative lettering.`,
   ];
 
@@ -127,11 +200,14 @@ export function buildPositivePrompt(intent: DrawingIntent): string {
   const dims = measurementBlock(intent);
   if (dims) parts.push(dims);
 
+  /* 標題欄原文只在 image-model 模式交給模型；其餘模式由應用程式繪製。 */
+  const titleText = titleBlockTextBlock(intent);
+  if (titleText) parts.push(titleText);
+
   if (intent.notes.trim()) parts.push(`Additional requirements: ${intent.notes.trim()}`);
 
-  parts.push(
-    'Sheet framing: single flat sheet, orthogonal to the viewer, generous white margins, no page curl.',
-  );
+  parts.push(reservedSheetClause(intent));
+  parts.push('Sheet framing: single flat sheet, orthogonal to the viewer, no page curl.');
 
   return parts.join('\n');
 }
@@ -139,8 +215,16 @@ export function buildPositivePrompt(intent: DrawingIntent): string {
 /** 產出負向提示語 */
 export function buildNegativePrompt(intent: DrawingIntent): string {
   // 文字由應用程式補回時，任何字形都只會是亂碼來源，明確列入負面提示。
+  /* 標題欄／比例尺／修訂表一律由應用程式繪製，任何模型自己排的圖框都只會
+     和保留區打架，因此固定列入負面提示。 */
+  /* 例外：image-model 模式下標題欄就是模型要畫的那一格，負面提示不能同時禁止它，
+     否則正負面提示互相打架，模型往往就整張不畫或亂畫。 */
+  const modelDrawsTitleBlock = intent.text.renderMode === 'image-model' && intent.annotation.titleBlock;
+  const furnitureFree = modelDrawsTitleBlock
+    ? ['extra tables', 'revision table', 'sheet number box', 'ruler graphic']
+    : ['title block', 'revision table', 'sheet number box', 'ruler graphic'];
   const textFree = intent.text.renderMode === 'image-model' ? [] : ['any text', 'letters', 'numbers', 'words', 'characters', 'labels', 'typography'];
-  return [...BASELINE_EXCLUDE, ...textFree, ...intent.exclude.filter((s) => s.trim())].join(', ');
+  return [...BASELINE_EXCLUDE, ...furnitureFree, ...textFree, ...intent.exclude.filter((s) => s.trim())].join(', ');
 }
 
 /** 局部重繪：只描述選區內要發生的變化，並鎖住其餘部分 */

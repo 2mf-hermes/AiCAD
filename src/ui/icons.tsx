@@ -88,6 +88,16 @@ export const IconSave = ({ size = 18, className }: IconProps) => (
   </svg>
 );
 
+/** CAD 匯出：圖框＋標註線，與一般「匯出」區分開來。 */
+export const IconCad = ({ size = 18, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <path d="M3.2 3.6h13.6v12.8H3.2z" />
+    <path d="M11.4 12.4h4.4" />
+    <path d="M12.2 11.6l-.8.8.8.8M15 11.6l.8.8-.8.8" />
+    <path d="M5.4 6.2h3.4M5.4 8.8h2.4" />
+  </svg>
+);
+
 export const IconFolder = ({ size = 18, className }: IconProps) => (
   <svg {...base(size)} className={className}>
     <path d="M2.8 5.5h5l1.6 2h7.8v7.6a1.7 1.7 0 0 1-1.7 1.7h-11a1.7 1.7 0 0 1-1.7-1.7z" />

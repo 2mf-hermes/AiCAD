@@ -55,4 +55,30 @@ describe('technical drawing prompt text safeguards', () => {
     expect(prompt).toContain('application to render exact vector-like text overlays');
     expect(prompt).toContain('Never generate pseudo-text');
   });
+
+  it('reserves a blank title-block band only when the annotation option is on', () => {
+    const on = createDefaultIntent();
+    on.annotation.titleBlock = true;
+    on.text.renderMode = 'text-model-overlay';
+    const withBlock = buildPositivePrompt(on);
+    expect(withBlock).toContain('Reserved band');
+    expect(withBlock).toContain('blank title-block geometry');
+    expect(withBlock).toContain('Title block: the application draws');
+
+    const off = createDefaultIntent();
+    off.annotation.titleBlock = false;
+    off.text.renderMode = 'text-model-overlay';
+    const withoutBlock = buildPositivePrompt(off);
+    expect(withoutBlock).toContain('this sheet has no title block');
+    expect(withoutBlock).not.toContain('blank title-block geometry');
+    expect(buildNegativePrompt(off)).toContain('title block');
+  });
+
+  it('lets image-model mode draw one title block without contradicting the negative prompt', () => {
+    const intent = createDefaultIntent();
+    intent.annotation.titleBlock = true;
+    intent.text.renderMode = 'image-model';
+    expect(buildPositivePrompt(intent)).toContain('draw exactly one ISO 7200 title block');
+    expect(buildNegativePrompt(intent)).not.toContain('title block');
+  });
 });

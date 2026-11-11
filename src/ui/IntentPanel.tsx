@@ -86,53 +86,85 @@ export function IntentPanel({ intent, onChange }: Props) {
 
       <ReferencePanel value={intent.references ?? []} onChange={(references) => onChange({ ...intent, references })} />
 
-      <Section variant="block" title={t.intent.textSection}>
-        <Field label={t.intent.textLanguage} hint={t.intent.textLanguageHint}>
-          <Select<DrawingTextLanguage>
-            ariaLabel={t.intent.textLanguage}
-            value={intent.textLanguage}
-            onChange={(textLanguage) => onChange({ ...intent, textLanguage })}
-            options={DRAWING_TEXT_LANGUAGES.map((value) => ({ value, label: t.drawingLanguage[value] }))}
+      <Section variant="block" title={t.intent.annotationSection}>
+        {/* 標註分兩類：一類寫進提示詞（生圖前決定），一類由應用程式疊加（隨時可改）。
+            先講清楚差別，使用者才不會生完圖才發現少畫了尺寸線。 */}
+        <p className="field__hint">{t.intent.annotationPreHint}</p>
+        <div>
+          <Toggle
+            label={t.intent.dimensions}
+            description={t.intent.dimensionsHint}
+            checked={intent.annotation.dimensions}
+            onChange={(dimensions) => patchAnnotation({ dimensions })}
           />
-        </Field>
-        <Field label="文字繪製模式" hint="精確文字可由應用程式疊加，或交由模型直接產生">
-          <Select<DrawingTextRenderMode>
-            ariaLabel="文字繪製模式"
-            value={intent.text.renderMode}
-            onChange={(renderMode) => patchText({ renderMode })}
-            options={[
-              { value: 'application', label: '應用程式精確繪製' },
-              { value: 'text-model-overlay', label: '文字模型補齊後精確疊加' },
-              { value: 'image-model', label: '生圖模型直接繪製' },
-            ]}
+          <Toggle
+            label={t.intent.tolerance}
+            description={t.intent.toleranceHint}
+            checked={intent.annotation.tolerance}
+            onChange={(tolerance) => patchAnnotation({ tolerance })}
           />
-        </Field>
-        <Field label="圖面標題">
-          <input className="input" value={intent.text.title} onChange={(e) => patchText({ title: e.target.value })} />
-        </Field>
-        <Field label="日期">
-          <input className="input" value={intent.text.date} onChange={(e) => patchText({ date: e.target.value })} />
-        </Field>
-      </Section>
+          <Toggle
+            label={t.intent.gdt}
+            description={t.intent.gdtHint}
+            checked={intent.annotation.gdt}
+            onChange={(gdt) => patchAnnotation({ gdt })}
+          />
+          <Toggle
+            label={t.intent.callouts}
+            checked={intent.annotation.callouts}
+            onChange={(callouts) => patchAnnotation({ callouts })}
+          />
+        </div>
 
-      <Section
-        variant="block"
-        title={t.intent.customFieldsSection}
-        aside={
-          <button type="button" className="btn btn--ghost btn--sm" onClick={() => patchText({ customFields: [...intent.text.customFields, { key: '', value: '' }] })}>
-            {t.common.add}
-          </button>
-        }
-      >
-        {intent.text.customFields.map((field, index) => (
-          <div className="dimrow" key={`title-field-${index}`}>
-            <input className="input" value={field.key} placeholder={t.common.name} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, key: e.target.value } : item) })} />
-            <input className="input" value={field.value} placeholder="值" onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, value: e.target.value } : item) })} />
-            <button type="button" className="iconbtn" aria-label={t.intent.removeRow(field.key || t.intent.thisRow)} onClick={() => patchText({ customFields: intent.text.customFields.filter((_, i) => i !== index) })}>
-              <IconClose size={14} />
-            </button>
-          </div>
-        ))}
+        <p className="field__hint">{t.intent.annotationPostHint}</p>
+        <div>
+          <Toggle
+            label={t.intent.titleBlock}
+            description={t.intent.titleBlockHint}
+            checked={intent.annotation.titleBlock}
+            onChange={(titleBlock) => patchAnnotation({ titleBlock })}
+          />
+          {intent.annotation.titleBlock && (
+            <div className="intent-subblock">
+              <Field label={t.intent.sheetTitle} hint={t.intent.sheetTitleHint}>
+                <input className="input" value={intent.text.title} onChange={(e) => patchText({ title: e.target.value })} />
+              </Field>
+              <Field label={t.intent.sheetDate} hint={t.intent.sheetDateHint}>
+                <div className="dimrow">
+                  <input
+                    className="input"
+                    type="date"
+                    value={/^\d{4}-\d{2}-\d{2}$/.test(intent.text.date) ? intent.text.date : ''}
+                    onChange={(e) => patchText({ date: e.target.value })}
+                  />
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => patchText({ date: new Date().toISOString().slice(0, 10) })}>
+                    {t.intent.dateToday}
+                  </button>
+                </div>
+              </Field>
+              <div className="dimrow">
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => patchText({ customFields: [...intent.text.customFields, { key: '', value: '' }] })}>
+                  {t.intent.addField}
+                </button>
+              </div>
+              {intent.text.customFields.map((field, index) => (
+                <div className="dimrow" key={`title-field-${index}`}>
+                  <input className="input" value={field.key} placeholder={t.common.name} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, key: e.target.value } : item) })} />
+                  <input className="input" value={field.value} placeholder={t.intent.fieldValue} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, value: e.target.value } : item) })} />
+                  <button type="button" className="iconbtn" aria-label={t.intent.removeRow(field.key || t.intent.thisRow)} onClick={() => patchText({ customFields: intent.text.customFields.filter((_, i) => i !== index) })}>
+                    <IconClose size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Toggle
+            label={t.intent.scaleBar}
+            description={t.intent.scaleBarHint}
+            checked={intent.annotation.scaleBar}
+            onChange={(scaleBar) => patchAnnotation({ scaleBar })}
+          />
+        </div>
       </Section>
 
       <Section
@@ -229,43 +261,27 @@ export function IntentPanel({ intent, onChange }: Props) {
         </Field>
       </Section>
 
-      <Section variant="block" title={t.intent.annotationSection}>
-        <div>
-          <Toggle
-            label={t.intent.dimensions}
-            description={t.intent.dimensionsHint}
-            checked={intent.annotation.dimensions}
-            onChange={(dimensions) => patchAnnotation({ dimensions })}
+      <Section variant="block" title={t.intent.textSection}>
+        <Field label={t.intent.textLanguage} hint={t.intent.textLanguageHint}>
+          <Select<DrawingTextLanguage>
+            ariaLabel={t.intent.textLanguage}
+            value={intent.textLanguage}
+            onChange={(textLanguage) => onChange({ ...intent, textLanguage })}
+            options={DRAWING_TEXT_LANGUAGES.map((value) => ({ value, label: t.drawingLanguage[value] }))}
           />
-          <Toggle
-            label={t.intent.tolerance}
-            description={t.intent.toleranceHint}
-            checked={intent.annotation.tolerance}
-            onChange={(tolerance) => patchAnnotation({ tolerance })}
+        </Field>
+        <Field label={t.intent.textRenderMode} hint={t.intent.textRenderModeHint}>
+          <Select<DrawingTextRenderMode>
+            ariaLabel={t.intent.textRenderMode}
+            value={intent.text.renderMode}
+            onChange={(renderMode) => patchText({ renderMode })}
+            options={[
+              { value: 'application', label: t.intent.textRenderApplication },
+              { value: 'text-model-overlay', label: t.intent.textRenderTextModel },
+              { value: 'image-model', label: t.intent.textRenderImageModel },
+            ]}
           />
-          <Toggle
-            label={t.intent.gdt}
-            description={t.intent.gdtHint}
-            checked={intent.annotation.gdt}
-            onChange={(gdt) => patchAnnotation({ gdt })}
-          />
-          <Toggle
-            label={t.intent.callouts}
-            checked={intent.annotation.callouts}
-            onChange={(callouts) => patchAnnotation({ callouts })}
-          />
-          <Toggle
-            label={t.intent.titleBlock}
-            description={t.intent.titleBlockHint}
-            checked={intent.annotation.titleBlock}
-            onChange={(titleBlock) => patchAnnotation({ titleBlock })}
-          />
-          <Toggle
-            label={t.intent.scaleBar}
-            checked={intent.annotation.scaleBar}
-            onChange={(scaleBar) => patchAnnotation({ scaleBar })}
-          />
-        </div>
+        </Field>
       </Section>
 
       <Section variant="block" title={t.intent.extraSection}>

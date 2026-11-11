@@ -8,6 +8,7 @@ export const ja: Dict = {
     untitled: '無題',
     docTitle: (n, w, h) => `図面 ${n} · ${w}×${h}`,
     exportPng: 'PNG で書き出す',
+    exportCad: 'DXF に書き出す（CAD）',
     preferences: '環境設定',
   },
 
@@ -37,7 +38,12 @@ export const ja: Dict = {
 
   intent: {
     kindSection: '図面の種類',
-    textSection: '文字と表題',
+    textSection: '言語と文字',
+    textRenderMode: '図面の文字',
+    textRenderModeHint: 'タイトル・ラベル・注記を描く主体',
+    textRenderApplication: 'アプリが正確に描画',
+    textRenderTextModel: 'テキストモデルで重ね書き',
+    textRenderImageModel: '生成モデルが描画',
     customFieldsSection: '表題欄のカスタム項目',
     kindLabel: '種別',
     kindHint: '投影配置と寸法記入の慣例が決まります',
@@ -75,6 +81,16 @@ export const ja: Dict = {
     titleBlock: '表題欄',
     titleBlockHint: 'ISO 7200 形式、右下に配置',
     scaleBar: 'スケールバー',
+    annotationPreHint: '生成前に決める項目。図面そのものを変えます',
+    annotationPostHint: '生成前後いつでも切り替え可。アプリが描画し、生成モデルには描かせません',
+    scaleBarHint: 'グラフィック比例尺（左下）',
+    sheetTitle: '図面タイトル',
+    sheetTitleHint: '表題欄に表示されます',
+    sheetDate: '日付',
+    sheetDateHint: '空欄なら日付を表示しません',
+    dateToday: '今日',
+    addField: '項目を追加',
+    fieldValue: '値',
 
     extraSection: '追加条件',
     notes: '補足要求',

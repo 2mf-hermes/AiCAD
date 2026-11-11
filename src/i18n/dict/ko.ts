@@ -8,6 +8,7 @@ export const ko: Dict = {
     untitled: '제목 없음',
     docTitle: (n, w, h) => `도면 ${n} · ${w}×${h}`,
     exportPng: 'PNG 내보내기',
+    exportCad: 'DXF 내보내기(CAD)',
     preferences: '환경설정',
   },
 
@@ -37,7 +38,12 @@ export const ko: Dict = {
 
   intent: {
     kindSection: '도면 종류',
-    textSection: '문자 및 표제',
+    textSection: '언어와 문자',
+    textRenderMode: '도면 문자',
+    textRenderModeHint: '제목·라벨·주기를 그리는 주체',
+    textRenderApplication: '앱이 정확히 그립니다',
+    textRenderTextModel: '텍스트 모델로 겹쳐 그리기',
+    textRenderImageModel: '생성 모델이 그립니다',
     customFieldsSection: '사용자 표제 필드',
     kindLabel: '분류',
     kindHint: '투상 배치와 치수 기입 관례가 결정됩니다',
@@ -75,6 +81,16 @@ export const ko: Dict = {
     titleBlock: '표제란',
     titleBlockHint: 'ISO 7200 형식, 우측 하단 배치',
     scaleBar: '축척 바',
+    annotationPreHint: '생성 전에 정하는 항목이며 도면 자체를 바꿉니다',
+    annotationPostHint: '생성 전후 언제든 전환 가능. 앱이 그리고 생성 모델에는 맡기지 않습니다',
+    scaleBarHint: '그래픽 축척 막대, 왼쪽 아래',
+    sheetTitle: '도면 제목',
+    sheetTitleHint: '표제란에 표시됩니다',
+    sheetDate: '날짜',
+    sheetDateHint: '비워 두면 날짜를 표시하지 않습니다',
+    dateToday: '오늘',
+    addField: '항목 추가',
+    fieldValue: '값',
 
     extraSection: '추가 조건',
     notes: '보충 요구사항',

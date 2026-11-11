@@ -15,7 +15,13 @@ import {
 import { createDefaultIntent, type Artboard, type DrawingIntent, type MaskRegion } from './core/types';
 import { createDefaultCadWorkspace } from './core/cad';
 import { createSafeId } from './core/projectSafety';
-import { compositeLabelsPng, shouldOverlayLabels } from './core/textOverlay';
+import { shouldOverlayLabels } from './core/textOverlay';
+import { sheetLayout } from './core/sheetLayout';
+import { sheetFurniture, sheetViewHeight } from './core/sheetFurniture';
+import { buildSheetSvg } from './core/sheetSvg';
+import { rasterizeSheetSvg } from './core/sheetRaster';
+import { cadSuitability, sheetToDxf } from './core/cadExport';
+import { hasMeasurementRows } from './core/prompt/builder';
 import { resolveRunTimeoutSec } from './core/runTimeout';
 import { I18nProvider, useT } from './i18n';
 import { DrawingCanvas } from './ui/DrawingCanvas';
@@ -23,6 +29,7 @@ import {
   IconClose,
   IconDimension,
   IconExport,
+  IconCad,
   IconFolder,
   IconGenerate,
   IconHistory,
@@ -519,18 +526,79 @@ function Workspace({
     setMasks((m) => [...m, { ...r, id: createSafeId('mask'), instruction: '' }]);
   }, []);
 
+  /* 圖框配置：由標註選項推導；生圖提示詞、畫布預覽與匯出共用同一份幾何。 */
+  const sheet = useMemo(() => {
+    if (!current) return null;
+    const layout = sheetLayout({
+      titleBlock: current.intent.annotation.titleBlock,
+      measurements: hasMeasurementRows(current.intent),
+      scaleBar: current.intent.annotation.scaleBar,
+    });
+    const viewHeight = sheetViewHeight(current.width, current.height);
+    const furniture = sheetFurniture({
+      layout,
+      text: current.intent.text,
+      measurements: current.intent.measurements,
+      labels: { date: t.intent.sheetDate, scaleBar: t.intent.scaleBar },
+      viewHeight,
+    });
+    return { viewHeight, furniture };
+  }, [current, t]);
+
+  /** 匯出用：底圖、草稿向量、文字標示、圖框合成一張自足的 SVG。 */
+  const composeSheet = useCallback(
+    (withImage: boolean) => {
+      if (!current || !sheet) return '';
+      return buildSheetSvg({
+        width: current.width,
+        height: current.height,
+        imageRef: withImage ? current.imageRef : undefined,
+        draftSvg: current.draftSvg,
+        labels: shouldOverlayLabels(current.intent) ? current.textLabels : undefined,
+        furniture: sheet.furniture,
+        viewHeight: sheet.viewHeight,
+        dark: current.intent.lineStyle === 'blueprint',
+      });
+    },
+    [current, sheet],
+  );
+
   const exportPng = useCallback(async () => {
     if (!current) return;
-    /* 草稿文字標示只疊在畫面上，匯出時要合成進 PNG，否則匯出圖會少了文字。 */
+    /* 草稿文字與圖框只疊在畫面上；匯出時要一起光柵化，否則 PNG 會少了它們。 */
     let href = current.imageRef;
-    if (current.textLabels?.length && shouldOverlayLabels(current.intent)) {
-      try { href = await compositeLabelsPng(current.imageRef, current.textLabels, current.intent.lineStyle === 'blueprint'); } catch { href = current.imageRef; }
+    try {
+      href = await rasterizeSheetSvg(composeSheet(true), current.width, current.height);
+    } catch {
+      href = current.imageRef;
     }
     const a = document.createElement('a');
     a.href = href;
-    a.download = `aicad-${new Date(current.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '')}.png`;
+    a.download = `aicad-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.png`;
     a.click();
-  }, [current]);
+  }, [composeSheet, current]);
+
+  /* 只有草稿是向量且圖面類型適合進 CAD 時才給 DXF；否則按鈕停用，
+     免得使用者拿到一張只有圖框的空檔案。 */
+  const cadReady = !!current && cadSuitability(current.intent.kind, current.draftSvg) === 'vector';
+
+  const exportCad = useCallback(() => {
+    if (!current || !sheet || !cadReady) return;
+    const result = sheetToDxf({
+      sheetSvg: composeSheet(false),
+      cadEntities: cadWorkspace.entities,
+      cadLayers: cadWorkspace.layers,
+      paperHeight: Math.round((420 * sheet.viewHeight) / 1000),
+      viewHeight: sheet.viewHeight,
+    });
+    const blob = new Blob([result.dxf], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aicad-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.dxf`;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }, [cadReady, cadWorkspace, composeSheet, current, sheet]);
 
   const canGenerate = !busy && intent.subject.trim().length > 0 && enabledImage.length > 0;
   const canInpaint =
@@ -608,6 +676,12 @@ function Workspace({
           >
             <IconExport size={16} />
           </button>
+          {/* 只有草稿是向量、且圖面類型適合進 CAD 時才出現，免得匯出一張空檔案。 */}
+          {cadReady && (
+            <button type="button" className="iconbtn" aria-label={t.app.exportCad} title={t.app.exportCad} onClick={exportCad}>
+              <IconCad size={16} />
+            </button>
+          )}
           <button
             type="button"
             className="iconbtn"
@@ -707,9 +781,8 @@ function Workspace({
               artboard={current}
               ratio={ratio}
               masks={masks}
-              measurements={intent.measurements}
-              drawingText={intent.text}
-              showTitleBlock={intent.annotation.titleBlock}
+              furniture={sheet?.furniture ?? []}
+              furnitureHeight={sheet?.viewHeight ?? 700}
               showGrid={showGrid}
               maskMode={maskMode}
               zoomBoxMode={zoomBoxMode}

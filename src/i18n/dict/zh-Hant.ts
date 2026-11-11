@@ -15,6 +15,7 @@ export const zhHant = {
     untitled: '未命名文件',
     docTitle: (n: number, w: number, h: number) => `圖面 ${n} · ${w}×${h}`,
     exportPng: '匯出 PNG',
+    exportCad: '匯出 DXF（CAD）',
     preferences: '偏好設定',
   },
 
@@ -44,7 +45,12 @@ export const zhHant = {
 
   intent: {
     kindSection: '圖面類型',
-    textSection: '文字與標題',
+    textSection: '語言與文字',
+    textRenderMode: '圖面文字',
+    textRenderModeHint: '標題、標示與註記由誰繪製',
+    textRenderApplication: '由應用程式精確繪製',
+    textRenderTextModel: '文字模型疊加',
+    textRenderImageModel: '由生圖模型繪製',
     customFieldsSection: '自訂標題欄位',
     kindLabel: '類別',
     kindHint: '決定視角配置與標註慣例',
@@ -80,6 +86,16 @@ export const zhHant = {
     titleBlock: '標題欄',
     titleBlockHint: 'ISO 7200 樣式，置於右下角',
     scaleBar: '比例尺',
+    annotationPreHint: '生圖前就要決定，會改變圖面本身',
+    annotationPostHint: '生圖前後都能自由開關，由應用程式繪製，不交給生圖模型',
+    scaleBarHint: '圖形比例尺，左下角',
+    sheetTitle: '圖面標題',
+    sheetTitleHint: '顯示在標題欄內',
+    sheetDate: '日期',
+    sheetDateHint: '留空則不顯示日期',
+    dateToday: '今天',
+    addField: '新增欄位',
+    fieldValue: '值',
 
     extraSection: '附加條件',
     notes: '補充要求',

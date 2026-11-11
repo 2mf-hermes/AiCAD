@@ -123,6 +123,8 @@ export interface Artboard {
   model: string;
   /** 草稿擷取的文字標示（選填，舊檔沒有此欄位）。 */
   textLabels?: DrawingTextLabel[];
+  /** 草稿向量（選填，舊檔沒有此欄位）。有它才有真正的幾何可匯出成 CAD 檔。 */
+  draftSvg?: string;
 }
 
 /** 顯示順序的單一來源。標籤文字改由 i18n 字典提供（t.kind / t.lineStyle），

@@ -325,7 +325,7 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在繪製圖面${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
   deps.signal.throwIfAborted();
-  return artboard(result, intent, prompt, config, draft?.labels);
+  return artboard(result, intent, prompt, config, draft?.labels, draft?.svg);
 }
 
 export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDeps): Promise<Artboard> {
@@ -351,15 +351,19 @@ export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDe
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在重繪選區${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
   /* 標示從未被畫進底圖，所以重繪不會毀掉或重複它們；沿用來源標示即可，使用者看到的文字維持不變。 */
-  return { ...artboard(result, source.intent, prompt, config, source.textLabels), parentId: source.id, masks: structuredClone(masks) };
+  return { ...artboard(result, source.intent, prompt, config, source.textLabels, source.draftSvg), parentId: source.id, masks: structuredClone(masks) };
 }
 
-function artboard(result: ImageResult, intent: DrawingIntent, prompt: string, config: ProviderConfig, labels?: DrawingTextLabel[]): Artboard {
+/** 草稿向量只為 CAD 匯出而留存；超過上限就放棄，避免專案檔被單張圖撐大。 */
+const MAX_DRAFT_SVG = 24_000;
+
+function artboard(result: ImageResult, intent: DrawingIntent, prompt: string, config: ProviderConfig, labels?: DrawingTextLabel[], draftSvg?: string): Artboard {
   return {
     id: createSafeId('result'), createdAt: Date.now(), imageRef: `data:image/png;base64,${result.base64}`,
     width: result.width, height: result.height, intent: structuredClone(intent), resolvedPrompt: prompt,
     providerId: config.id, model: config.model || config.imageModel || '(服務端預設)',
     textLabels: labels && labels.length > 0 ? labels : undefined,
+    draftSvg: draftSvg && draftSvg.trim().length <= MAX_DRAFT_SVG ? draftSvg : undefined,
   };
 }
 

@@ -8,6 +8,7 @@ export const zhHans: Dict = {
     untitled: '未命名文件',
     docTitle: (n, w, h) => `图纸 ${n} · ${w}×${h}`,
     exportPng: '导出 PNG',
+    exportCad: '导出 DXF（CAD）',
     preferences: '首选项',
   },
 
@@ -37,7 +38,12 @@ export const zhHans: Dict = {
 
   intent: {
     kindSection: '图纸类型',
-    textSection: '文字与标题',
+    textSection: '语言与文字',
+    textRenderMode: '图面文字',
+    textRenderModeHint: '标题、标示与注记由谁绘制',
+    textRenderApplication: '由应用程式精确绘制',
+    textRenderTextModel: '文字模型叠加',
+    textRenderImageModel: '由生图模型绘制',
     customFieldsSection: '自定义标题栏',
     kindLabel: '类别',
     kindHint: '决定视图配置与标注惯例',
@@ -74,6 +80,16 @@ export const zhHans: Dict = {
     titleBlock: '标题栏',
     titleBlockHint: 'ISO 7200 样式，置于右下角',
     scaleBar: '比例尺',
+    annotationPreHint: '生图前就要决定，会改变图面本身',
+    annotationPostHint: '生图前后都能自由开关，由应用程式绘制，不交给生图模型',
+    scaleBarHint: '图形比例尺，左下角',
+    sheetTitle: '图面标题',
+    sheetTitleHint: '显示在标题栏内',
+    sheetDate: '日期',
+    sheetDateHint: '留空则不显示日期',
+    dateToday: '今天',
+    addField: '新增字段',
+    fieldValue: '值',
 
     extraSection: '附加条件',
     notes: '补充要求',

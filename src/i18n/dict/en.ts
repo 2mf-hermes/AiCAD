@@ -8,6 +8,7 @@ export const en: Dict = {
     untitled: 'Untitled',
     docTitle: (n, w, h) => `Drawing ${n} · ${w}×${h}`,
     exportPng: 'Export PNG',
+    exportCad: 'Export DXF (CAD)',
     preferences: 'Preferences',
   },
 
@@ -37,7 +38,12 @@ export const en: Dict = {
 
   intent: {
     kindSection: 'Drawing type',
-    textSection: 'Text & title',
+    textSection: 'Language & text',
+    textRenderMode: 'Drawing text',
+    textRenderModeHint: 'Who draws titles, labels and notes',
+    textRenderApplication: 'Drawn by the app (exact)',
+    textRenderTextModel: 'Text-model overlay',
+    textRenderImageModel: 'Drawn by the image model',
     customFieldsSection: 'Custom title fields',
     kindLabel: 'Category',
     kindHint: 'Determines view layout and annotation conventions',
@@ -75,6 +81,16 @@ export const en: Dict = {
     titleBlock: 'Title block',
     titleBlockHint: 'ISO 7200 style, bottom-right corner',
     scaleBar: 'Scale bar',
+    annotationPreHint: 'Decided before generation — these change the drawing itself',
+    annotationPostHint: 'Switch any time — the app draws these, never the image model',
+    scaleBarHint: 'Graphic scale bar, bottom-left corner',
+    sheetTitle: 'Drawing title',
+    sheetTitleHint: 'Shown inside the title block',
+    sheetDate: 'Date',
+    sheetDateHint: 'Leave blank to omit the date',
+    dateToday: 'Today',
+    addField: 'Add field',
+    fieldValue: 'Value',
 
     extraSection: 'Additional constraints',
     notes: 'Extra requirements',

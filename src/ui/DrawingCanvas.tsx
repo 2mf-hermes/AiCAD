@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Artboard, DrawingTextSpec, MaskRegion } from '../core/types';
+import type { Artboard, MaskRegion } from '../core/types';
+import type { FurniturePrimitive } from '../core/sheetFurniture';
 import {
   alignCadEntities, cadToleranceForViewport, createArrayOffsets, createCadBlock, createCadEntity, createCadRectangle,
   deleteCadEntities, editableCadEntityIds, expandCadBlockSelection, extendCadEntity, findCadSnap,
@@ -14,9 +15,10 @@ interface Props {
   artboard: Artboard | null;
   ratio: number;
   masks: MaskRegion[];
-  measurements: Record<string, string>;
-  drawingText: DrawingTextSpec;
-  showTitleBlock: boolean;
+  /** 由 sheetFurniture 產生的圖框圖元；與匯出用同一份幾何。 */
+  furniture: readonly FurniturePrimitive[];
+  /** 圖框座標系高度（viewBox 0 0 1000 furnitureHeight）。 */
+  furnitureHeight: number;
   showGrid: boolean;
   maskMode: boolean;
   zoomBoxMode: boolean;
@@ -33,7 +35,7 @@ const MIN_SIZE = 0.015;
 const DRAW_TOOLS: CadTool[] = ['line', 'rectangle', 'circle', 'dimension'];
 
 export function DrawingCanvas({
-  artboard, ratio, masks, measurements, drawingText, showTitleBlock, showGrid, maskMode, zoomBoxMode,
+  artboard, ratio, masks, furniture, furnitureHeight, showGrid, maskMode, zoomBoxMode,
   cadWorkspace, onCadWorkspaceChange, onZoomBoxModeChange, onAddMask,
 }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -283,7 +285,6 @@ export function DrawingCanvas({
   };
 
   const draftRect = draft ? normalize(draft) : null;
-  const measurementRows = Object.entries(measurements).filter(([label, value]) => label.trim() && value.trim());
   const cursor = (maskMode || zoomBoxMode || DRAW_TOOLS.includes(cadWorkspace.activeTool)) ? 'crosshair' : cadWorkspace.activeTool === 'move' ? 'move' : 'default';
   return (
     <div className="drawing-viewer">
@@ -294,7 +295,7 @@ export function DrawingCanvas({
       </div>
       <div ref={sheetRef} className="sheet" style={{ ['--sheet-ratio' as string]: `${ratio}`, ['--sheet-zoom' as string]: `${zoom}`, cursor }} onWheel={onWheel} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => { if (!draft && !cadDraft && !dragEntityRef.current) setSnapPoint(null); }} onPointerCancel={() => { setDraft(null); setCadDraft(null); if (dragEntityRef.current) onCadWorkspaceChange(dragEntityRef.current.before); dragEntityRef.current = null; }} onContextMenu={onContextMenu}>
         {artboard ? <img className="sheet__img" src={artboard.imageRef} alt="生成的技術圖面" draggable={false} /> : <div className="sheet__empty"><p className="sheet__empty-title">尚無底圖</p><p className="sheet__empty-desc">可直接使用上方 CAD 工具繪製，或先由 AI 產生圖面。</p></div>}
-        {artboard?.textLabels && artboard.textLabels.length > 0 && shouldOverlayLabels({ text: drawingText, textLanguage: artboard.intent.textLanguage }) && (
+        {artboard?.textLabels && artboard.textLabels.length > 0 && shouldOverlayLabels(artboard.intent) && (
         /* 草稿文字標示補回：viewBox 用底圖原始像素並以 meet 對齊，與 object-fit: contain 的圖完全重疊。 */
         <svg className={`sheet__labels${artboard.intent.lineStyle === 'blueprint' ? ' sheet__labels--dark' : ''}`} viewBox={`0 0 ${artboard.width} ${artboard.height}`} preserveAspectRatio="xMidYMid meet" aria-label="圖面文字標示" style={{ fontFamily: LABEL_FONT_STACK }}>
           {placeLabels(artboard.textLabels, artboard.width, artboard.height).map((label, index) => (
@@ -310,8 +311,62 @@ export function DrawingCanvas({
             : <CadShape entity={createCadEntity(cadWorkspace, cadWorkspace.activeTool as 'line' | 'circle' | 'dimension', cadDraft.start, cadDraft.end, 'draft') ?? { id: 'draft', kind: 'line', layerId: '', color: '#5EA2FF', start: cadDraft.start, end: cadDraft.end }} selected draft />)}
           {snapPoint && <SnapIndicator snap={snapPoint} />}
         </svg>
-        {showTitleBlock && drawingText.renderMode !== 'image-model' && (drawingText.title.trim() || drawingText.date.trim() || drawingText.customFields.some((field) => field.key.trim() || field.value.trim())) && <div className="sheet__title-block" aria-label="Drawing title block">{drawingText.title.trim() && <div className="sheet__title-block-title">{drawingText.title}</div>}{drawingText.date.trim() && <div className="sheet__title-block-row"><span>Date</span><strong>{drawingText.date}</strong></div>}{drawingText.customFields.filter((field) => field.key.trim() || field.value.trim()).map((field, index) => <div className="sheet__title-block-row" key={`${field.key}:${index}`}><span>{field.key}</span><strong>{field.value}</strong></div>)}</div>}
-        {measurementRows.length > 0 && drawingText.renderMode !== 'image-model' && <svg className="sheet__measurements" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-label="尺寸標註"><defs><marker id="dimension-arrow" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="auto-start-reverse"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="currentColor" /></marker></defs>{measurementRows.map(([label, value], index) => { const slotWidth = 900 / measurementRows.length; const x1 = 70 + index * slotWidth; const x2 = 30 + (index + 1) * slotWidth; const center = (x1 + x2) / 2; return <g className="sheet__measurement" key={`${label}:${value}`}><line x1={x1} y1="32" x2={x1} y2="92" className="sheet__measurement-extension" /><line x1={x2} y1="32" x2={x2} y2="92" className="sheet__measurement-extension" /><line x1={x1} y1="76" x2={x2} y2="76" className="sheet__measurement-line" markerStart="url(#dimension-arrow)" markerEnd="url(#dimension-arrow)" /><rect x={center - Math.min(100, slotWidth * .34)} y="61" width={Math.min(200, slotWidth * .68)} height="30" className="sheet__measurement-label-bg" /><text x={center} y="80" textAnchor="middle" className="sheet__measurement-text">{label} {value}</text></g>; })}</svg>}
+        {furniture.length > 0 && (
+          /* 圖框（標題欄／比例尺／尺寸列）與匯出共用同一份幾何；drawingText 由呼叫端算好，
+             這裡只負責把圖元畫出來，不再自己決定位置。 */
+          <svg
+            className={`sheet__furniture${artboard?.intent.lineStyle === 'blueprint' ? ' sheet__furniture--dark' : ''}`}
+            viewBox={`0 0 1000 ${furnitureHeight}`}
+            preserveAspectRatio="none"
+            aria-label="圖框與標註"
+          >
+            {furniture.map((primitive, index) => {
+              if (primitive.kind === 'rect') {
+                return (
+                  <rect
+                    key={`furniture-${index}`}
+                    x={primitive.x}
+                    y={primitive.y}
+                    width={primitive.w}
+                    height={primitive.h}
+                    fill={primitive.fill ? 'currentColor' : 'none'}
+                    stroke="currentColor"
+                    strokeWidth={1.1}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              }
+              if (primitive.kind === 'line') {
+                return (
+                  <line
+                    key={`furniture-${index}`}
+                    x1={primitive.x1}
+                    y1={primitive.y1}
+                    x2={primitive.x2}
+                    y2={primitive.y2}
+                    stroke="currentColor"
+                    strokeWidth={1.1}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              }
+              return (
+                <text
+                  key={`furniture-${index}`}
+                  x={primitive.x}
+                  y={primitive.y}
+                  fontSize={primitive.size}
+                  textAnchor={primitive.anchor}
+                  fontWeight={primitive.weight}
+                  fill="currentColor"
+                  style={{ fontFamily: LABEL_FONT_STACK }}
+                >
+                  {primitive.text}
+                </text>
+              );
+            })}
+          </svg>
+        )}
         {masks.map((mask, index) => <div key={mask.id} className="mask" style={{ left: `${mask.x * 100}%`, top: `${mask.y * 100}%`, width: `${mask.w * 100}%`, height: `${mask.h * 100}%` }}><span className="mask__tag">選區 {index + 1}</span></div>)}
         {draftRect && <div className="mask mask--draft" style={{ left: `${draftRect.x * 100}%`, top: `${draftRect.y * 100}%`, width: `${draftRect.w * 100}%`, height: `${draftRect.h * 100}%` }} />}
       </div>
