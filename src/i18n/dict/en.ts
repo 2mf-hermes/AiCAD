@@ -42,7 +42,6 @@ export const en: Dict = {
     textRenderMode: 'Drawing text mode',
     textRenderModeHint: 'Chosen before generating: it changes the drawing itself. The app always overlays the title block and scale bar either way.',
     textRenderApplication: 'App exact overlay mode',
-    textRenderTextModel: 'Text-model overlay',
     textRenderImageModel: 'Image model draws it',
     customFieldsSection: 'Custom title fields',
     kindLabel: 'Category',

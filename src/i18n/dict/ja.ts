@@ -42,7 +42,6 @@ export const ja: Dict = {
     textRenderMode: '図面文字モード',
     textRenderModeHint: '生成前に選択します（図面自体が変わります）。タイトル欄と縮尺バーは常にアプリが重ねます',
     textRenderApplication: 'アプリ正確な重ね表示',
-    textRenderTextModel: 'テキストモデルで重ね書き',
     textRenderImageModel: '生成モデルが描画',
     customFieldsSection: '表題欄のカスタム項目',
     kindLabel: '種別',

@@ -24,7 +24,9 @@ export type LineStyle = 'technical-ink' | 'blueprint' | 'pencil-draft' | 'cad-ve
 /** 尺寸單位 */
 export type Unit = 'mm' | 'cm' | 'm' | 'in' | 'ft';
 export type DrawingTextLanguage = 'zh-Hant' | 'zh-Hans' | 'en' | 'ja' | 'ko' | 'none';
-export type DrawingTextRenderMode = 'application' | 'text-model-overlay' | 'image-model';
+/* 只留兩種：應用程式精確疊加、生圖模型直接繪製。
+   舊版存檔若還留著 'text-model-overlay'，載入時一律收斂成 'application'。 */
+export type DrawingTextRenderMode = 'application' | 'image-model';
 export interface TitleBlockField { key: string; value: string; }
 export interface DrawingTextSpec {
   renderMode: DrawingTextRenderMode;

@@ -85,7 +85,7 @@ describe('shouldOverlayLabels', () => {
   it('只在應用程式負責文字且有語言時補回', () => {
     const base = createDefaultIntent();
     expect(shouldOverlayLabels({ ...base, text: { ...base.text, renderMode: 'application' }, textLanguage: 'en' })).toBe(true);
-    expect(shouldOverlayLabels({ ...base, text: { ...base.text, renderMode: 'text-model-overlay' }, textLanguage: 'en' })).toBe(true);
+    expect(shouldOverlayLabels({ ...base, text: { ...base.text, renderMode: 'application' }, textLanguage: 'zh-Hant' })).toBe(true);
     expect(shouldOverlayLabels({ ...base, text: { ...base.text, renderMode: 'image-model' }, textLanguage: 'en' })).toBe(false);
     expect(shouldOverlayLabels({ ...base, text: { ...base.text, renderMode: 'application' }, textLanguage: 'none' })).toBe(false);
   });

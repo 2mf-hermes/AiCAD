@@ -42,7 +42,6 @@ export const ko: Dict = {
     textRenderMode: '도면 문자 모드',
     textRenderModeHint: '생성 전에 선택하며 도면 자체가 바뀝니다. 제목란과 축척 막대는 항상 앱이 덧그립니다',
     textRenderApplication: '앱 정확 중첩 모드',
-    textRenderTextModel: '텍스트 모델로 겹쳐 그리기',
     textRenderImageModel: '생성 모델이 그립니다',
     customFieldsSection: '사용자 표제 필드',
     kindLabel: '분류',

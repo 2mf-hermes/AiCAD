@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   addCadLayer, deleteCadLayer, resolveCadCommand, updateCadLayer,
-  type ArrayMode, type CadTool, type CadWorkspaceState, type DimensionMode, type OsnapMode,
+  type ArrayMode, type CadDimensionEntity, type CadTool, type CadWorkspaceState, type DimensionMode, type OsnapMode,
 } from '../core/cad';
 import { createSafeId } from '../core/projectSafety';
 import { DIMENSION_MODE_LIST } from '../core/dimension';
@@ -36,6 +36,14 @@ export function CadToolbar({ value, onChange }: Props) {
   const [showSnap, setShowSnap] = useState(false);
   const activeLayer = value.layers.find((layer) => layer.id === value.activeLayerId);
   const activeTool = GROUPS.flatMap((group) => group.tools).find((tool) => tool.id === value.activeTool);
+  /* 選到的尺寸標註要用它自己存的數值與類型顯示。
+     少了這段，使用者填過數值、再點回那條尺寸時輸入框會變回空白（看起來像「填了沒生效」），
+     類型選單也還是上一次的選擇（看起來像「選哪個都一樣」）。 */
+  const pickedDimension = value.entities.find(
+    (entity): entity is CadDimensionEntity => entity.kind === 'dimension' && value.selectedEntityIds.includes(entity.id),
+  );
+  const dimensionTextShown = pickedDimension?.text || value.dimensionText || '';
+  const dimensionModeShown = pickedDimension?.mode ?? value.dimensionMode;
   const choose = (tool: CadTool) => { onChange({ ...value, activeTool: tool, command: '' }); setOpenGroup(null); };
   useEffect(() => {
     const close = (event: PointerEvent) => {
@@ -88,10 +96,18 @@ export function CadToolbar({ value, onChange }: Props) {
       </div>
       {value.activeTool === 'dimension' && <>
         {/* 類型選單旁直接顯示該類型的量法，選單不再只是換一個字。 */}
-        <label className="cad-ribbon__select" title={DIMENSION_MODE_LIST.find((mode) => mode.value === value.dimensionMode)?.hint}>尺寸類型<select value={value.dimensionMode} onChange={(event) => onChange({ ...value, dimensionMode: event.target.value as DimensionMode })}>{DIMENSION_MODE_LIST.map((mode) => <option key={mode.value} value={mode.value} title={mode.hint}>{mode.label}</option>)}</select></label>
-        <span className="cad-ribbon__dimension-hint">{DIMENSION_MODE_LIST.find((mode) => mode.value === value.dimensionMode)?.hint}</span>
+        <label className="cad-ribbon__select" title={DIMENSION_MODE_LIST.find((mode) => mode.value === dimensionModeShown)?.hint}>尺寸類型<select value={dimensionModeShown} onChange={(event) => {
+          const dimensionMode = event.target.value as DimensionMode;
+          // 換類型要真的換：連目前選取的尺寸一起改寫，否則選單換了字、圖上那條尺寸不會跟著變。
+          const picked = new Set(value.selectedEntityIds);
+          const entities = value.selectedEntityIds.length
+            ? value.entities.map((entity) => entity.kind === 'dimension' && picked.has(entity.id) ? { ...entity, mode: dimensionMode } : entity)
+            : value.entities;
+          onChange({ ...value, dimensionMode, entities });
+        }}>{DIMENSION_MODE_LIST.map((mode) => <option key={mode.value} value={mode.value} title={mode.hint}>{mode.label}</option>)}</select></label>
+        <span className="cad-ribbon__dimension-hint">{DIMENSION_MODE_LIST.find((mode) => mode.value === dimensionModeShown)?.hint}</span>
         {/* 數值輸入：填了就以填的值顯示（可寫 R12、⌀20、45° 等字串），清空即恢復自動量測。 */}
-        <label className="cad-ribbon__number cad-ribbon__number--dim">尺寸數值<input type="text" inputMode="decimal" className="cad-ribbon__dimension-value" value={value.dimensionText} placeholder="自動量測" title="輸入後套用到新畫的尺寸與目前選取的尺寸；清空恢復自動量測。" onChange={(event) => {
+        <label className="cad-ribbon__number cad-ribbon__number--dim">尺寸數值<input type="text" inputMode="decimal" className="cad-ribbon__dimension-value" value={dimensionTextShown} placeholder="自動量測" title="輸入後套用到新畫的尺寸與目前選取的尺寸；清空恢復自動量測。" onChange={(event) => {
         const dimensionText = event.target.value.slice(0, 40);
         // 數值同時套用到新畫的尺寸與當前選取的尺寸標註；清空即恢復自動量測。
         const picked = new Set(value.selectedEntityIds);
@@ -100,7 +116,14 @@ export function CadToolbar({ value, onChange }: Props) {
           : value.entities;
         onChange({ ...value, dimensionText, entities });
         }} /></label>
-        {value.dimensionText.trim() && <button type="button" className="cad-ribbon__clear" title="清空數值，改回自動量測" onClick={() => onChange({ ...value, dimensionText: '' })}>清除</button>}
+        {dimensionTextShown.trim() && <button type="button" className="cad-ribbon__clear" title="清空數值，改回自動量測" onClick={() => {
+          // 清除同時清掉輸入值與選取尺寸上手動輸入的值，畫面與圖面才一致。
+          const picked = new Set(value.selectedEntityIds);
+          const entities = value.selectedEntityIds.length
+            ? value.entities.map((entity) => entity.kind === 'dimension' && picked.has(entity.id) ? { ...entity, text: undefined } : entity)
+            : value.entities;
+          onChange({ ...value, dimensionText: '', entities });
+        }}>清除</button>}
       </>}
       {value.activeTool === 'array' && <>
         <label className="cad-ribbon__select">陣列<select value={value.arrayMode} onChange={(event) => onChange({ ...value, arrayMode: event.target.value as ArrayMode })}>{ARRAY_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label>

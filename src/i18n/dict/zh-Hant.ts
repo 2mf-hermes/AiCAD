@@ -49,7 +49,6 @@ export const zhHant = {
     textRenderMode: '圖面文字模式',
     textRenderModeHint: '生圖前就要選定，會改變圖面本身；標題欄與比例尺一律由應用程式疊加',
     textRenderApplication: '應用程式精確疊加模式',
-    textRenderTextModel: '文字模型疊加',
     textRenderImageModel: '生圖模型繪製模式',
     customFieldsSection: '自訂標題欄位',
     kindLabel: '類別',

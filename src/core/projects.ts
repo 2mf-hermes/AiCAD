@@ -89,7 +89,14 @@ export const deleteProject = (id: string) => backend.remove(id);
 
 function normalizeText(value: unknown, defaults: DrawingIntent['text']): DrawingIntent['text'] {
   const raw = asRecord(value);
-  const mode = raw.renderMode === 'application' || raw.renderMode === 'text-model-overlay' || raw.renderMode === 'image-model' ? raw.renderMode : defaults.renderMode;
+  /* 只剩兩種模式；舊存檔若還寫著已移除的 'text-model-overlay'，一律收斂成應用程式精確疊加。 */
+  const rawMode = raw.renderMode;
+  const mode: DrawingIntent['text']['renderMode'] =
+    rawMode === 'image-model'
+      ? 'image-model'
+      : rawMode === 'application' || rawMode === 'text-model-overlay'
+        ? 'application'
+        : defaults.renderMode;
   const customFields = Array.isArray(raw.customFields) ? raw.customFields.slice(0, 40).map((field: unknown) => {
     const record = asRecord(field);
     return { key: asString(record.key).slice(0, 160), value: asString(record.value).slice(0, 500) };

@@ -13,9 +13,9 @@ describe('technical drawing prompt text safeguards', () => {
     expect(prompt).toContain('外徑: 120 mm');
   });
 
-  it('reserves exact title-block text in text-model-overlay mode too', () => {
+  it('reserves exact title-block text in application-overlay mode too', () => {
     const intent = createDefaultIntent();
-    intent.text.renderMode = 'text-model-overlay';
+    intent.text.renderMode = 'application';
     intent.text.title = 'Pump Assembly';
     intent.text.date = '2026-09-08';
     intent.text.customFields = [{ key: 'Drawing No.', value: 'A-101' }];
@@ -29,7 +29,7 @@ describe('technical drawing prompt text safeguards', () => {
      標題與比例尺一律由應用程式疊上，任何模式都不給模型畫，所以生圖模型模式
      裡也只有「不要把標題欄畫進圖面」這條路。 */
   it('never asks the image model to draw the title block or the scale bar, in any mode', () => {
-    for (const renderMode of ['text-model-overlay', 'image-model'] as const) {
+    for (const renderMode of ['application', 'image-model'] as const) {
       const intent = createDefaultIntent();
       intent.text.renderMode = renderMode;
       intent.annotation.titleBlock = true;
@@ -81,7 +81,7 @@ describe('technical drawing prompt text safeguards', () => {
   it('keeps the standard title slot blank even when the title-block option is off', () => {
     const off = createDefaultIntent();
     off.annotation.titleBlock = false;
-    off.text.renderMode = 'text-model-overlay';
+    off.text.renderMode = 'application';
     const withoutBlock = buildPositivePrompt(off);
     expect(withoutBlock).toContain('Title slot: keep the rectangle at');
     expect(withoutBlock).toContain('as completely blank paper');
@@ -90,7 +90,7 @@ describe('technical drawing prompt text safeguards', () => {
 
     const on = createDefaultIntent();
     on.annotation.titleBlock = true;
-    on.text.renderMode = 'text-model-overlay';
+    on.text.renderMode = 'application';
     const withBlock = buildPositivePrompt(on);
     expect(withBlock).toContain('Reserved band');
     expect(withBlock).toContain('The application draws the title block there as its own overlay layer');

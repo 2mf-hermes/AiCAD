@@ -42,7 +42,6 @@ export const zhHans: Dict = {
     textRenderMode: '图面文字模式',
     textRenderModeHint: '生图前就要选定，会改变图面本身；标题栏与比例尺一律由应用程序叠加',
     textRenderApplication: '应用程序精确叠加模式',
-    textRenderTextModel: '文字模型叠加',
     textRenderImageModel: '生图模型绘制模式',
     customFieldsSection: '自定义标题栏',
     kindLabel: '类别',

@@ -116,7 +116,7 @@ export function IntentPanel({ intent, onChange }: Props) {
         <Field label={t.intent.textRenderMode} hint={t.intent.textRenderModeHint}>
           <Select<DrawingTextRenderMode>
             ariaLabel={t.intent.textRenderMode}
-            value={intent.text.renderMode === 'text-model-overlay' ? 'application' : intent.text.renderMode}
+            value={intent.text.renderMode}
             onChange={(renderMode) => patchText({ renderMode })}
             options={[
               { value: 'application', label: t.intent.textRenderApplication },
