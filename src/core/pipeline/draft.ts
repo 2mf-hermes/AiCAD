@@ -29,6 +29,7 @@
    ========================================================================== */
 
 import type { DrawingIntent, DrawingTextLabel, LineStyle } from '../types';
+import { viewDirective } from '../prompt/builder';
 
 /** 草稿的長邊像素。太大會拖慢生圖，太小則線稿糊成一片。 */
 const DRAFT_SIZE = 1024;
@@ -55,6 +56,11 @@ export interface DraftSvg {
    * 幾何說明。人可以直接開來看，模型也可以讀原始碼理解「每個視圖在哪、叫什麼」。
    */
   html?: string;
+  /**
+   * 草稿線稿的點陣檢視圖。文字模型讀完草稿後留下，最後一趟生圖把它當構圖依據附上，
+   * 也就是「草稿交由生圖模型視覺辨識」。留空時退回純文字提示詞，生圖仍可完成。
+   */
+  view?: { mimeType: string; base64: string };
 }
 
 /* ---------------------------------------------------------------------------
@@ -76,9 +82,11 @@ export function buildDraftSystemPrompt(): string {
     '   3 for visible outlines, 1.5 for dimension and leader lines, 1 for centre lines (dash-dot),',
     '   1.5 with dashes for hidden edges.',
     '4. Lay out views orthographically and keep them aligned: front view, top view directly above',
-    '   or below it, right-side view beside it, plus one isometric detail inset in a corner.',
-    '5. Include centre lines through holes, extension lines with arrowheads for dimensions, and a',
-    '   title block rectangle in the lower right corner.',
+    '   or below it, side views beside it. Add an isometric detail inset ONLY when the request asks',
+    '   for one \u2014 never invent extra viewpoints of your own.',
+    '5. Include centre lines through holes and extension lines with arrowheads for dimensions. In the',
+    '   lower right corner draw ONLY the empty outline of the reserved title slot as one plain',
+    '   rectangle: no internal cell lines, no table, no lettering \u2014 the application fills it.',
     '6. Do NOT include <tspan>, fonts, gradients, filters, images, clip paths, or foreign objects.',
     '   <text> is allowed ONLY when the request asks for labels, and only as',
     '   <text x=".." y=".." text-anchor="start|middle|end" font-size="10-24">short label</text>.',
@@ -100,14 +108,22 @@ const LABEL_LANGUAGE: Record<DrawingIntent['textLanguage'], string> = {
   ja: 'Japanese', ko: 'Korean', none: 'none',
 };
 
-/** 把使用者的圖面意圖壓成給草稿模型的一句話。 */
-export function buildDraftRequest(intent: DrawingIntent): string {
+/**
+ * 把使用者的圖面意圖壓成給草稿模型的一句話。
+ *
+ * `refinedSubject` 是前一段「文字模型精煉」的產物：使用者要求的順序是
+ * 先精煉提示詞、再據以畫草稿，所以精煉完就直接把那段描述帶進草稿請求，
+ * 兩段才不會各說各話。
+ */
+export function buildDraftRequest(intent: DrawingIntent, refinedSubject?: string): string {
   const lines = [
     `Sheet subject: ${intent.subject || '(unspecified)'}`,
     `Drawing kind: ${intent.kind}`,
     `Line style target: ${intent.lineStyle}`,
     `Units: ${intent.annotation.unit}`,
   ];
+  if (refinedSubject?.trim()) lines.push(`Refined subject description (draw exactly this): ${refinedSubject.trim()}`);
+  lines.push(viewDirective(intent));
   if (intent.categoryContent.trim()) lines.push(`Additional content: ${intent.categoryContent.trim()}`);
   if (intent.notes.trim()) lines.push(`Requirements: ${intent.notes.trim()}`);
   const wantsLabels = intent.text?.renderMode !== 'image-model' && intent.textLanguage !== 'none';

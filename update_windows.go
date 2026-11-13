@@ -75,6 +75,11 @@ const (
 
 	// 舊版執行檔的暫留後綴。下次啟動時清除。
 	staleSuffix = ".old"
+
+	// 舊執行檔重試刪除的節奏與總長度。前一輪行程退場只要數百毫秒，
+	// 但防毒掃描剛寫入的新執行檔可能握住更久，因此視窗給到一分鐘。
+	staleRetryInterval = 500 * time.Millisecond
+	staleRetryWindow   = 60 * time.Second
 )
 
 // 允許下載更新的主機。刻意寫死在程式碼裡而不是讀設定檔 —— 設定檔是使用者
@@ -800,23 +805,38 @@ func updateStageDir() (string, error) {
 // 單次刪除必失敗 —— 這正是「更新重開後舊檔要再關掉重開一次才會消失」的原因。
 // 改成背景短週期重試，檔案一解鎖就清掉，使用者不必再手動重啟。
 func removeStaleExecutable(path string) {
-	if err := os.Remove(path); err == nil {
+	// 沒有殘留就不必排隊重試，免得每次啟動都多養一條 goroutine。
+	if _, err := os.Stat(path); err != nil {
 		return
 	}
-	go func() {
-		// 舊行程約數百毫秒退場；留 15 秒餘裕涵蓋防毒掃描等較慢的釋放情境。
-		deadline := time.Now().Add(15 * time.Second)
-		for time.Now().Before(deadline) {
-			time.Sleep(500 * time.Millisecond)
-			if err := os.Remove(path); err == nil {
-				return
-			}
+	// 背景等解鎖：啟動路徑上不 blocking，使用者不必等刪檔才看到視窗。
+	go removeWhenUnlocked(path, staleRetryWindow)
+}
+
+// removeWhenUnlocked 先試一次刪除，被鎖住就在 window 內短週期重試，成功回 true。
+// 語意是「檔案一旦不再被前一輪行程映射就清掉」，而不是「刪不掉就算了」——
+// 後者正是使用者看到舊檔要再重開一次才消失的原因。
+func removeWhenUnlocked(path string, window time.Duration) bool {
+	if err := os.Remove(path); err == nil {
+		return true
+	}
+	deadline := time.Now().Add(window)
+	for time.Now().Before(deadline) {
+		time.Sleep(staleRetryInterval)
+		if err := os.Remove(path); err == nil {
+			return true
 		}
-	}()
+	}
+	return false
 }
 
 func cleanupAfterUpdate() {
 	if exe, err := os.Executable(); err == nil {
+		/* 安裝時是把「解析過符號連結」的路徑改名成 .old（見 installUpdate），
+		   這裡要走同一條解析，否則符號連結／8.3 短檔名的情況下會指到不同檔案。 */
+		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = resolved
+		}
 		removeStaleExecutable(exe + staleSuffix)
 	}
 	dir, err := updateStageDir()

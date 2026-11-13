@@ -9,6 +9,7 @@ import {
   type CadEntity, type CadPoint, type CadSnapResult, type CadTool, type CadWorkspaceState,
 } from '../core/cad';
 import { createSafeId } from '../core/projectSafety';
+import { arrowLines, dimensionGeometry } from '../core/dimension';
 import { LABEL_FONT_STACK, placeLabels, shouldOverlayLabels } from '../core/textOverlay';
 
 interface Props {
@@ -316,7 +317,7 @@ export function DrawingCanvas({
       )}
       {showGrid && <div className="sheet__grid" />}
         <svg className="cad-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="CAD 物件">
-          {visibleEntities.map((entity) => <CadShape key={entity.id} entity={entity} selected={selected.has(entity.id)} />)}
+          {visibleEntities.map((entity) => <CadShape key={entity.id} entity={entity} entities={visibleEntities} selected={selected.has(entity.id)} />)}
           {cadWorkspace.blocks.map((block) => {
             const members = cadWorkspace.entities.filter((entity) => block.entityIds.includes(entity.id));
             if (!members.length) return null;
@@ -348,7 +349,8 @@ export function DrawingCanvas({
                     y={primitive.y}
                     width={primitive.w}
                     height={primitive.h}
-                    fill={primitive.fill ? 'currentColor' : 'none'}
+                    /* 填的是紙色，不是 currentColor（墨色）；填墨色會把標題欄變成黑色區塊。 */
+                    fill={primitive.fill ? 'var(--sheet-paper, #ffffff)' : 'none'}
                     stroke="currentColor"
                     strokeWidth={1.1}
                     vectorEffect="non-scaling-stroke"
@@ -407,15 +409,23 @@ export function DrawingCanvas({
   );
 }
 
-function CadShape({ entity, selected, draft = false }: { entity: CadEntity; selected?: boolean; draft?: boolean }) {
+function CadShape({ entity, entities = [], selected, draft = false }: { entity: CadEntity; entities?: readonly CadEntity[]; selected?: boolean; draft?: boolean }) {
   const className = `cad-entity${selected ? ' cad-entity--selected' : ''}${draft ? ' cad-entity--draft' : ''}`;
   if (entity.kind === 'circle') return <circle className={className} cx={entity.center.x * 1000} cy={entity.center.y * 1000} r={entity.radius * 1000} stroke={entity.color} />;
   if (entity.kind === 'dimension') {
-    const x1 = entity.start.x * 1000; const y1 = entity.start.y * 1000; const x2 = entity.end.x * 1000; const y2 = entity.end.y * 1000;
-    const length = Math.round(Math.hypot(x2 - x1, y2 - y1));
-    // 手動輸入的尺寸數值優先顯示；未輸入時沿用幾何量測值。
-    const label = entity.text && entity.text.trim() ? entity.text : String(length);
-    return <g className={className} stroke={entity.color} fill={entity.color}><line x1={x1} y1={y1} x2={x2} y2={y2} /><circle cx={x1} cy={y1} r="5" /><circle cx={x2} cy={y2} r="5" /><text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 10} textAnchor="middle">{label}</text></g>;
+    /* 每一種類型的尺寸線、延伸線、箭頭、弧線與文字位置都由 dimensionGeometry 算出來，
+       與匯出的 DXF 用同一份幾何，畫面上看到的箭頭方向就是匯出後的箭頭方向。
+       手動輸入的數值優先；未輸入時顯示該類型自己的量測值（投影／實長／角度／R／⌀）。 */
+    const geometry = dimensionGeometry(entity, entities);
+    const p = (point: CadPoint) => `${point.x * 1000} ${point.y * 1000}`;
+    return <g className={className} stroke={entity.color} fill={entity.color}>
+      {geometry.extensions.map((segment, index) => <line key={`ext-${index}`} className="cad-dim__extension" x1={segment.start.x * 1000} y1={segment.start.y * 1000} x2={segment.end.x * 1000} y2={segment.end.y * 1000} />)}
+      {geometry.arc
+        ? <path className="cad-dim__line" fill="none" d={`M ${p({ x: geometry.arc.center.x + Math.cos(geometry.arc.from) * geometry.arc.radius, y: geometry.arc.center.y + Math.sin(geometry.arc.from) * geometry.arc.radius })} A ${geometry.arc.radius * 1000} ${geometry.arc.radius * 1000} 0 ${geometry.arc.to - geometry.arc.from > Math.PI ? 1 : 0} 1 ${p({ x: geometry.arc.center.x + Math.cos(geometry.arc.to) * geometry.arc.radius, y: geometry.arc.center.y + Math.sin(geometry.arc.to) * geometry.arc.radius })}`} />
+        : <line className="cad-dim__line" x1={geometry.line.start.x * 1000} y1={geometry.line.start.y * 1000} x2={geometry.line.end.x * 1000} y2={geometry.line.end.y * 1000} />}
+      {geometry.arrows.flatMap((arrow, index) => arrowLines(arrow).map((segment, side) => <line key={`arrow-${index}-${side}`} className="cad-dim__arrow" strokeWidth={2} x1={segment.start.x * 1000} y1={segment.start.y * 1000} x2={segment.end.x * 1000} y2={segment.end.y * 1000} />))}
+      <text className="cad-dim__text" x={geometry.text.x * 1000} y={geometry.text.y * 1000} textAnchor="middle" transform={geometry.text.rotate ? `rotate(${geometry.text.rotate} ${geometry.text.x * 1000} ${geometry.text.y * 1000})` : undefined}>{geometry.text.value}</text>
+    </g>;
   }
   return <line className={className} x1={entity.start.x * 1000} y1={entity.start.y * 1000} x2={entity.end.x * 1000} y2={entity.end.y * 1000} stroke={entity.color} />;
 }

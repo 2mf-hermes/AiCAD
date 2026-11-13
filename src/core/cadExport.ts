@@ -15,6 +15,7 @@
    ========================================================================== */
 
 import type { CadEntity, CadLayer } from './cad';
+import { arrowLines, dimensionGeometry } from './dimension';
 import { estimateTextWidth } from './sheetFurniture';
 import type { DrawingKind } from './types';
 
@@ -301,7 +302,7 @@ export function pathToPolylines(d: string): Polyline[] {
   return out.filter((polyline) => polyline.points.length > 1);
 }
 
-export type DxfKind = 'LINE' | 'LWPOLYLINE' | 'CIRCLE' | 'TEXT';
+export type DxfKind = 'LINE' | 'LWPOLYLINE' | 'CIRCLE' | 'TEXT' | 'ARC';
 
 export interface DxfShape {
   kind: DxfKind;
@@ -313,6 +314,9 @@ export interface DxfShape {
   height: number;
   rotation: number;
   anchor: 'start' | 'middle' | 'end';
+  /** 只給 ARC 用：起訖角（度，逆時針）。 */
+  startAngle?: number;
+  endAngle?: number;
 }
 
 interface CollectOptions {
@@ -556,7 +560,7 @@ export interface CadExportInput {
 
 export interface CadExportResult {
   dxf: string;
-  counts: { lines: number; polylines: number; circles: number; texts: number; layers: number; skipped: number };
+  counts: { lines: number; polylines: number; circles: number; arcs: number; texts: number; layers: number; skipped: number };
 }
 
 /**
@@ -600,10 +604,14 @@ export function sheetToDxf(input: CadExportInput): CadExportResult {
         anchor: 'start',
       });
     } else if (entity.kind === 'dimension') {
-      shapes.push({
+      /* 尺寸標註匯出成「延伸線 + 尺寸線 + 兩枝箭頭 + 量測值文字」，
+         幾何與畫布共用 dimensionGeometry()，匯出後與螢幕上完全一致。
+         角度標註改寫 ARC，其餘一律是 LINE。 */
+      const geometry = dimensionGeometry(entity, input.cadEntities ?? []);
+      const segment = (start: Point, end: Point) => shapes.push({
         kind: 'LINE',
         layer: layerName,
-        points: [toPoint(entity.start), toPoint(entity.end)],
+        points: [toPoint(start), toPoint(end)],
         closed: false,
         radius: 0,
         text: '',
@@ -611,16 +619,34 @@ export function sheetToDxf(input: CadExportInput): CadExportResult {
         rotation: 0,
         anchor: 'start',
       });
-      const lengthMm = Math.hypot(entity.end.x - entity.start.x, entity.end.y - entity.start.y) * paperWidth;
+      for (const extension of geometry.extensions) segment(extension.start, extension.end);
+      if (geometry.arc) {
+        shapes.push({
+          kind: 'ARC',
+          layer: layerName,
+          points: [toPoint(geometry.arc.center)],
+          closed: false,
+          radius: geometry.arc.radius * viewWidth,
+          text: '',
+          height: 0,
+          rotation: 0,
+          anchor: 'start',
+          startAngle: geometry.arc.from * 180 / Math.PI,
+          endAngle: geometry.arc.to * 180 / Math.PI,
+        });
+      } else {
+        segment(geometry.line.start, geometry.line.end);
+      }
+      for (const arrow of geometry.arrows) for (const part of arrowLines(arrow)) segment(part.start, part.end);
       shapes.push({
         kind: 'TEXT',
         layer: 'TEXT',
-        points: [toPoint({ x: (entity.start.x + entity.end.x) / 2, y: (entity.start.y + entity.end.y) / 2 })],
+        points: [toPoint({ x: geometry.text.x, y: geometry.text.y })],
         closed: false,
         radius: 0,
-        text: lengthMm.toFixed(1),
+        text: geometry.text.value,
         height: 2.5 / scale,
-        rotation: 0,
+        rotation: geometry.text.rotate,
         anchor: 'middle',
       });
     } else {
@@ -638,7 +664,7 @@ export function sheetToDxf(input: CadExportInput): CadExportResult {
     }
   }
 
-  const counts = { lines: 0, polylines: 0, circles: 0, texts: 0, layers: layers.size, skipped };
+  const counts = { lines: 0, polylines: 0, circles: 0, arcs: 0, texts: 0, layers: layers.size, skipped };
   const body: string[] = [];
 
   const push = (...codes: (string | number)[]) => {
@@ -658,6 +684,14 @@ export function sheetToDxf(input: CadExportInput): CadExportResult {
       const center = flip(shape.points[0]);
       counts.circles += 1;
       push(0, 'CIRCLE', 8, layerName, 62, color, 10, center.x.toFixed(3), 20, center.y.toFixed(3), 40, (shape.radius * scale).toFixed(3));
+    } else if (shape.kind === 'ARC') {
+      /* 角度標註的弧線：SVG 的 y 軸向下、DXF 的 y 軸向上，所以角度取負號。
+         起訖角互換後仍要保持逆時針（DXF 一律逆時針走）。 */
+      const center = flip(shape.points[0]);
+      const startAngle = -(shape.endAngle ?? 0);
+      const endAngle = -(shape.startAngle ?? 0);
+      counts.arcs += 1;
+      push(0, 'ARC', 8, layerName, 62, color, 10, center.x.toFixed(3), 20, center.y.toFixed(3), 40, (shape.radius * scale).toFixed(3), 50, startAngle.toFixed(3), 51, endAngle.toFixed(3));
     } else if (shape.kind === 'TEXT') {
       const point = flip(shape.points[0]);
       counts.texts += 1;

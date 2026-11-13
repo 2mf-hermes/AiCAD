@@ -1,9 +1,17 @@
+/* 尺寸幾何放在 dimension.ts，這裡只借用它的頂點解析來決定物件能不能建立。
+   dimension.ts 對 cad.ts 只有 type 匯入，所以不會形成執行期的循環依賴。 */
+import { resolveAngle } from './dimension';
+
 export type CadTool =
   | 'select' | 'line' | 'rectangle' | 'circle' | 'erase' | 'copy' | 'move'
   | 'dimension' | 'trim' | 'extend' | 'offset' | 'rotate' | 'mirror'
   | 'block' | 'array' | 'align' | 'matchprop';
 export type OsnapMode = 'endpoint' | 'midpoint' | 'center' | 'quadrant' | 'intersection';
-export type DimensionMode = 'linear' | 'aligned' | 'angular' | 'continue';
+/**
+ * 尺寸標註類型。線性／對齊／角度／半徑／直徑／雙箭頭／連續都是實際會改變畫法與量測值的類型，
+ * 幾何一律由 `dimension.ts` 的 `dimensionGeometry()` 產生（畫布與匯出共用）。
+ */
+export type DimensionMode = 'linear' | 'aligned' | 'angular' | 'radius' | 'diameter' | 'double-arrow' | 'continue';
 export type ArrayMode = 'rectangular' | 'polar' | 'path';
 export interface CadPoint { x: number; y: number; }
 export interface CadLayer { id: string; name: string; color: string; visible: boolean; locked: boolean; }
@@ -49,7 +57,7 @@ const VALID_TOOLS: CadTool[] = ['select', 'line', 'rectangle', 'circle', 'erase'
 /** 單張圖面的 CAD 物件總量上限：陣列等大量複製操作超過即停止，避免畫布渲染數萬節點導致崩潰。 */
 export const MAX_CAD_ENTITIES = 2000;
 const VALID_SNAP: OsnapMode[] = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection'];
-const VALID_DIM: DimensionMode[] = ['linear', 'aligned', 'angular', 'continue'];
+const VALID_DIM: DimensionMode[] = ['linear', 'aligned', 'angular', 'radius', 'diameter', 'double-arrow', 'continue'];
 const VALID_ARRAY: ArrayMode[] = ['rectangular', 'polar', 'path'];
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const EPSILON = 1e-9;
@@ -351,7 +359,18 @@ export function createCadEntity(workspace: CadWorkspaceState, tool: 'line' | 'ci
   if (tool === 'circle') return { ...base, kind: 'circle', center: start, radius: distance(start, end) };
   if (tool === 'dimension') {
     const text = workspace.dimensionText.trim().slice(0, 40);
-    return { ...base, kind: 'dimension', start, end, mode: workspace.dimensionMode, text: text || undefined };
+    const mode = workspace.dimensionMode;
+    /* 連續標註：接續目前選取的那個尺寸，起點直接沿用它的終點，才真的連成一串。
+       沒有可接續的尺寸時就退回線性，不讓使用者白畫一條斷掉的鏈。 */
+    if (mode === 'continue') {
+      const previous = workspace.entities.find((entity): entity is CadDimensionEntity =>
+        entity.kind === 'dimension' && workspace.selectedEntityIds.includes(entity.id));
+      if (previous) return { ...base, kind: 'dimension', start: previous.end, end, mode, text: text || undefined };
+      return { ...base, kind: 'dimension', start, end, mode: 'linear', text: text || undefined };
+    }
+    /* 角度標註需要一個可解析的頂點與兩條邊；解析不出來就不要產生無意義的物件。 */
+    if (mode === 'angular' && !resolveAngle(workspace.entities, start, end)) return null;
+    return { ...base, kind: 'dimension', start, end, mode, text: text || undefined };
   }
   return { ...base, kind: 'line', start, end };
 }

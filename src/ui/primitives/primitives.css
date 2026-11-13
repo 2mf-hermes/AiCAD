@@ -74,9 +74,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  /* 欄位本身要能被壓窄，內部的 input（width:100%）才不會撐破所在區塊。 */
+  min-width: 0;
 }
 .field__label {
   font-size: var(--fs-caption);
+  overflow-wrap: anywhere;
   font-weight: var(--fw-medium);
   color: var(--fg-secondary);
   letter-spacing: var(--ls-caption);
@@ -85,12 +88,16 @@
   font-size: var(--fs-caption);
   color: var(--fg-tertiary);
   line-height: var(--lh-normal);
+  overflow-wrap: anywhere;
 }
 
 .input,
 .select,
 .textarea {
   width: 100%;
+  /* grid/flex 子項的預設 min-width:auto 會讓輸入框以內容寬度撐開版面。 */
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--bg-raised);
   border: 1px solid var(--line-hairline);
   border-radius: var(--r-sm);

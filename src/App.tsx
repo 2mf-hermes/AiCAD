@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { generate, inpaint, type RunProgress } from './core/pipeline/orchestrator';
 import { DraftCache, generationKey, type PreparedGeneration } from './core/pipeline/draftCache';
 import { RunFailureDialog } from './ui/RunFailureDialog';
+import { ReuseDraftDialog } from './ui/ReuseDraftDialog';
 import { isTimeout, TimeoutError } from './core/net/transport';
 import { userFacingReason } from './core/net/friendly';
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from './core/projects';
@@ -197,6 +198,8 @@ function Workspace({
   const draftCacheRef = useRef(new DraftCache());
   const [generationFailure, setGenerationFailure] = useState<{ key: string; message: string } | null>(null);
   const [failureOpen, setFailureOpen] = useState(false);
+  /* 第二次生圖前的「沿用或重新精煉」提示。 */
+  const [reuseAskOpen, setReuseAskOpen] = useState(false);
   const retryKey = useMemo(() => generationKey(intent, settings.canvas), [intent, settings.canvas.width, settings.canvas.height]);
 
   // Drawing changes invalidate text work; changing an engine or timeout does not.
@@ -204,6 +207,7 @@ function Workspace({
     draftCacheRef.current.forget();
     setGenerationFailure(null);
     setFailureOpen(false);
+    setReuseAskOpen(false);
   }, [retryKey]);
   const savedSnapshotRef = useRef(JSON.stringify({ intent: initialIntentRef.current, history: [], currentId: null, masks: [], showGrid: true, cadWorkspace: initialCadWorkspaceRef.current }));
   const closeAfterSaveRef = useRef(false);
@@ -481,7 +485,6 @@ function Workspace({
 
         ctrl.signal.throwIfAborted();
         if (task === 'generate') {
-          draftCacheRef.current.forget();
           setGenerationFailure(null);
         }
         setHistory((h) => [board, ...h].slice(0, 40));
@@ -710,6 +713,8 @@ function Workspace({
           <div className="panel__foot">
             <Button variant="primary" block disabled={!canGenerate} onClick={() => {
               if (generationFailure?.key === retryKey) setFailureOpen(true);
+              /* 已經產生過一次圖：精煉提示詞與草稿都還在，先問要不要沿用。 */
+              else if (draftCacheRef.current.peek(retryKey)) setReuseAskOpen(true);
               else void execute('generate');
             }}>
               <IconGenerate size={16} />
@@ -962,6 +967,13 @@ function Workspace({
           onClose={() => setFailureOpen(false)}
           onReuse={() => void execute('generate', true)}
           onRestart={() => void execute('generate')}
+        />
+      )}
+      {reuseAskOpen && !busy && (
+        <ReuseDraftDialog
+          onClose={() => setReuseAskOpen(false)}
+          onReuse={() => { setReuseAskOpen(false); void execute('generate', true); }}
+          onRefine={() => { setReuseAskOpen(false); void execute('generate'); }}
         />
       )}
       {settingsOpen && (

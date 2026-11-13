@@ -39,11 +39,11 @@ export const en: Dict = {
   intent: {
     kindSection: 'Drawing type',
     textSection: 'Language & text',
-    textRenderMode: 'Drawing text',
-    textRenderModeHint: 'Who draws titles, labels and notes',
-    textRenderApplication: 'Drawn by the app (exact)',
+    textRenderMode: 'Drawing text mode',
+    textRenderModeHint: 'Chosen before generating: it changes the drawing itself. The app always overlays the title block and scale bar either way.',
+    textRenderApplication: 'App exact overlay mode',
     textRenderTextModel: 'Text-model overlay',
-    textRenderImageModel: 'Drawn by the image model',
+    textRenderImageModel: 'Image model draws it',
     customFieldsSection: 'Custom title fields',
     kindLabel: 'Category',
     kindHint: 'Determines view layout and annotation conventions',
@@ -89,7 +89,8 @@ export const en: Dict = {
     sheetDate: 'Date',
     sheetDateHint: 'Leave blank to omit the date',
     dateToday: 'Today',
-    addField: 'Add field',
+    addField: 'Add field',
+    clearFields: 'Remove all fields',
     fieldValue: 'Value',
 
     extraSection: 'Additional constraints',
@@ -194,6 +195,12 @@ export const en: Dict = {
     restart: "Generate everything again",
   },
 
+  reuseDraft: {
+    title: 'Generate again?',
+    savedHint: 'The refined prompt and the reference draft from the last run are still available. Reuse them to send the request straight to the image model, or let the text model refine the prompt again and rebuild the reference draft.',
+    reuse: 'Reuse refined prompt and draft',
+    refine: 'Refine prompt again',
+  },
   status: {
     ready: (name) => `Ready · ${name}`,
     readyText: (name) => `Text ready · ${name}`,

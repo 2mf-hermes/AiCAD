@@ -39,9 +39,9 @@ export const ko: Dict = {
   intent: {
     kindSection: '도면 종류',
     textSection: '언어와 문자',
-    textRenderMode: '도면 문자',
-    textRenderModeHint: '제목·라벨·주기를 그리는 주체',
-    textRenderApplication: '앱이 정확히 그립니다',
+    textRenderMode: '도면 문자 모드',
+    textRenderModeHint: '생성 전에 선택하며 도면 자체가 바뀝니다. 제목란과 축척 막대는 항상 앱이 덧그립니다',
+    textRenderApplication: '앱 정확 중첩 모드',
     textRenderTextModel: '텍스트 모델로 겹쳐 그리기',
     textRenderImageModel: '생성 모델이 그립니다',
     customFieldsSection: '사용자 표제 필드',
@@ -89,7 +89,8 @@ export const ko: Dict = {
     sheetDate: '날짜',
     sheetDateHint: '비워 두면 날짜를 표시하지 않습니다',
     dateToday: '오늘',
-    addField: '항목 추가',
+    addField: '항목 추가',
+    clearFields: '모든 항목 지우기',
     fieldValue: '값',
 
     extraSection: '추가 조건',
@@ -193,6 +194,12 @@ export const ko: Dict = {
     restart: "처음부터 모두 생성",
   },
 
+  reuseDraft: {
+    title: '다시 생성할까요?',
+    savedHint: '지난번 텍스트 모델이 정련한 프롬프트와 참조 초안이 남아 있습니다. 재사용하면 정련된 프롬프트와 참조 이미지를 그대로 생성 모델로 보냅니다. 다시 정련하면 현재 설정으로 텍스트 모델을 다시 실행해 새 참조 초안을 만듭니다.',
+    reuse: '정련된 프롬프트와 초안 재사용',
+    refine: '프롬프트 다시 정련',
+  },
   status: {
     ready: (name) => `준비 완료 · ${name}`,
     readyText: (name) => `텍스트 준비 완료 · ${name}`,

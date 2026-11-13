@@ -50,6 +50,27 @@ export function IntentPanel({ intent, onChange }: Props) {
     [intent, onChange],
   );
 
+  /* 自訂欄位只動指定那一列：改一個字不會重建整個陣列參考，輸入焦點才不會跳掉。 */
+  const patchCustomField = useCallback(
+    (index: number, delta: Partial<DrawingIntent['text']['customFields'][number]>) => {
+      patchText({
+        customFields: intent.text.customFields.map((item, i) => (i === index ? { ...item, ...delta } : item)),
+      });
+    },
+    [intent, patchText],
+  );
+
+  const removeCustomField = useCallback(
+    (index: number) => {
+      patchText({ customFields: intent.text.customFields.filter((_, i) => i !== index) });
+    },
+    [intent, patchText],
+  );
+
+  const clearCustomFields = useCallback(() => {
+    patchText({ customFields: [] });
+  }, [patchText]);
+
   return (
     <>
       <Section variant="block" title={t.intent.kindSection}>
@@ -90,6 +111,19 @@ export function IntentPanel({ intent, onChange }: Props) {
         {/* 標註分兩類：一類寫進提示詞（生圖前決定），一類由應用程式疊加（隨時可改）。
             先講清楚差別，使用者才不會生完圖才發現少畫了尺寸線。 */}
         <p className="field__hint">{t.intent.annotationPreHint}</p>
+        {/* 圖面文字模式屬於「生圖前就要決定」的項目：它會改變圖面本身的畫法，
+            所以放在這裡而不是語言與文字區塊。只留兩種：應用程式疊加、生圖模型繪製。 */}
+        <Field label={t.intent.textRenderMode} hint={t.intent.textRenderModeHint}>
+          <Select<DrawingTextRenderMode>
+            ariaLabel={t.intent.textRenderMode}
+            value={intent.text.renderMode === 'text-model-overlay' ? 'application' : intent.text.renderMode}
+            onChange={(renderMode) => patchText({ renderMode })}
+            options={[
+              { value: 'application', label: t.intent.textRenderApplication },
+              { value: 'image-model', label: t.intent.textRenderImageModel },
+            ]}
+          />
+        </Field>
         <div>
           <Toggle
             label={t.intent.dimensions}
@@ -148,14 +182,38 @@ export function IntentPanel({ intent, onChange }: Props) {
                 </button>
               </div>
               {intent.text.customFields.map((field, index) => (
-                <div className="dimrow" key={`title-field-${index}`}>
-                  <input className="input" value={field.key} placeholder={t.common.name} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, key: e.target.value } : item) })} />
-                  <input className="input" value={field.value} placeholder={t.intent.fieldValue} onChange={(e) => patchText({ customFields: intent.text.customFields.map((item, i) => i === index ? { ...item, value: e.target.value } : item) })} />
-                  <button type="button" className="iconbtn" aria-label={t.intent.removeRow(field.key || t.intent.thisRow)} onClick={() => patchText({ customFields: intent.text.customFields.filter((_, i) => i !== index) })}>
+                <div className="dimrow dimrow--field" key={`title-field-${index}`}>
+                  <input
+                    className="input"
+                    value={field.key}
+                    placeholder={t.common.name}
+                    onChange={(e) => patchCustomField(index, { key: e.target.value })}
+                  />
+                  <input
+                    className="input"
+                    value={field.value}
+                    placeholder={t.intent.fieldValue}
+                    onChange={(e) => patchCustomField(index, { value: e.target.value })}
+                  />
+                  {/* 刪除自訂欄位：一列一顆，最後一列也留著，避免整塊設定突然消失。 */}
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    title={t.intent.removeRow(field.key || t.intent.thisRow)}
+                    aria-label={t.intent.removeRow(field.key || t.intent.thisRow)}
+                    onClick={() => removeCustomField(index)}
+                  >
                     <IconClose size={14} />
                   </button>
                 </div>
               ))}
+              {intent.text.customFields.length > 0 && (
+                <div className="dimrow dimrow--actions">
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => clearCustomFields()}>
+                    {t.intent.clearFields}
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <Toggle
@@ -268,18 +326,6 @@ export function IntentPanel({ intent, onChange }: Props) {
             value={intent.textLanguage}
             onChange={(textLanguage) => onChange({ ...intent, textLanguage })}
             options={DRAWING_TEXT_LANGUAGES.map((value) => ({ value, label: t.drawingLanguage[value] }))}
-          />
-        </Field>
-        <Field label={t.intent.textRenderMode} hint={t.intent.textRenderModeHint}>
-          <Select<DrawingTextRenderMode>
-            ariaLabel={t.intent.textRenderMode}
-            value={intent.text.renderMode}
-            onChange={(renderMode) => patchText({ renderMode })}
-            options={[
-              { value: 'application', label: t.intent.textRenderApplication },
-              { value: 'text-model-overlay', label: t.intent.textRenderTextModel },
-              { value: 'image-model', label: t.intent.textRenderImageModel },
-            ]}
           />
         </Field>
       </Section>

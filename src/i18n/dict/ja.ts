@@ -39,9 +39,9 @@ export const ja: Dict = {
   intent: {
     kindSection: '図面の種類',
     textSection: '言語と文字',
-    textRenderMode: '図面の文字',
-    textRenderModeHint: 'タイトル・ラベル・注記を描く主体',
-    textRenderApplication: 'アプリが正確に描画',
+    textRenderMode: '図面文字モード',
+    textRenderModeHint: '生成前に選択します（図面自体が変わります）。タイトル欄と縮尺バーは常にアプリが重ねます',
+    textRenderApplication: 'アプリ正確な重ね表示',
     textRenderTextModel: 'テキストモデルで重ね書き',
     textRenderImageModel: '生成モデルが描画',
     customFieldsSection: '表題欄のカスタム項目',
@@ -89,7 +89,8 @@ export const ja: Dict = {
     sheetDate: '日付',
     sheetDateHint: '空欄なら日付を表示しません',
     dateToday: '今日',
-    addField: '項目を追加',
+    addField: '項目を追加',
+    clearFields: 'すべての項目を削除',
     fieldValue: '値',
 
     extraSection: '追加条件',
@@ -193,6 +194,12 @@ export const ja: Dict = {
     restart: "最初から生成し直す",
   },
 
+  reuseDraft: {
+    title: 'もう一度生成しますか？',
+    savedHint: '前回テキストモデルが精錬したプロンプトと参照ドラフトが残っています。再利用すると精錬済みプロンプトと参照画像をそのまま生成モデルへ送ります。再精錬では現在の設定でテキストモデルをやり直し、新しい参照ドラフトを作ります。',
+    reuse: '精錬済みプロンプトとドラフトを再利用',
+    refine: 'プロンプトを再精錬',
+  },
   status: {
     ready: (name) => `準備完了 · ${name}`,
     readyText: (name) => `テキスト準備完了 · ${name}`,

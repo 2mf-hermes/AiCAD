@@ -4,6 +4,7 @@ import {
   type ArrayMode, type CadTool, type CadWorkspaceState, type DimensionMode, type OsnapMode,
 } from '../core/cad';
 import { createSafeId } from '../core/projectSafety';
+import { DIMENSION_MODE_LIST } from '../core/dimension';
 
 interface Props { value: CadWorkspaceState; onChange: (next: CadWorkspaceState) => void; }
 type ToolGroup = 'draw' | 'modify' | 'annotate' | 'library';
@@ -23,7 +24,8 @@ const GROUPS: { id: ToolGroup; label: string; tools: { id: CadTool; label: strin
   { id: 'annotate', label: '標註', tools: [{ id: 'dimension', label: '尺寸', shortcut: 'DIM' }] },
   { id: 'library', label: '元件', tools: [{ id: 'block', label: '建立圖塊', shortcut: 'B' }, { id: 'array', label: '陣列', shortcut: 'AR' }] },
 ];
-const DIMENSION_MODES: { value: DimensionMode; label: string }[] = [{ value: 'linear', label: '線性' }, { value: 'aligned', label: '對齊' }, { value: 'angular', label: '角度' }, { value: 'continue', label: '連續' }];
+/* 完整尺寸類型一律來自 core/dimension.ts 的 DIMENSION_MODE_LIST，
+   選單、畫布與 DXF 匯出因此共用同一份定義，不會出現「選了卻沒變」的類型。 */
 const ARRAY_MODES: { value: ArrayMode; label: string }[] = [{ value: 'rectangular', label: '矩形' }, { value: 'polar', label: '環形' }, { value: 'path', label: '路徑' }];
 const OSNAP_MODES: { value: OsnapMode; label: string }[] = [{ value: 'endpoint', label: '端點' }, { value: 'midpoint', label: '中點' }, { value: 'center', label: '圓心' }, { value: 'quadrant', label: '象限點' }, { value: 'intersection', label: '交點' }];
 
@@ -84,7 +86,12 @@ export function CadToolbar({ value, onChange }: Props) {
           {value.layers.map((layer) => <input key={`rename-${layer.id}`} className="cad-ribbon__layer-rename" aria-label={`重新命名 ${layer.name}`} value={layer.name} onChange={(event) => updateLayer(layer.id, { name: event.target.value })} />)}
         </div>}
       </div>
-      {value.activeTool === 'dimension' && <><label className="cad-ribbon__select">尺寸類型<select value={value.dimensionMode} onChange={(event) => onChange({ ...value, dimensionMode: event.target.value as DimensionMode })}>{DIMENSION_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label><label className="cad-ribbon__number">尺寸數值<input type="text" className="cad-ribbon__dimension-value" value={value.dimensionText} placeholder="自動量測" onChange={(event) => {
+      {value.activeTool === 'dimension' && <>
+        {/* 類型選單旁直接顯示該類型的量法，選單不再只是換一個字。 */}
+        <label className="cad-ribbon__select" title={DIMENSION_MODE_LIST.find((mode) => mode.value === value.dimensionMode)?.hint}>尺寸類型<select value={value.dimensionMode} onChange={(event) => onChange({ ...value, dimensionMode: event.target.value as DimensionMode })}>{DIMENSION_MODE_LIST.map((mode) => <option key={mode.value} value={mode.value} title={mode.hint}>{mode.label}</option>)}</select></label>
+        <span className="cad-ribbon__dimension-hint">{DIMENSION_MODE_LIST.find((mode) => mode.value === value.dimensionMode)?.hint}</span>
+        {/* 數值輸入：填了就以填的值顯示（可寫 R12、⌀20、45° 等字串），清空即恢復自動量測。 */}
+        <label className="cad-ribbon__number cad-ribbon__number--dim">尺寸數值<input type="text" inputMode="decimal" className="cad-ribbon__dimension-value" value={value.dimensionText} placeholder="自動量測" title="輸入後套用到新畫的尺寸與目前選取的尺寸；清空恢復自動量測。" onChange={(event) => {
         const dimensionText = event.target.value.slice(0, 40);
         // 數值同時套用到新畫的尺寸與當前選取的尺寸標註；清空即恢復自動量測。
         const picked = new Set(value.selectedEntityIds);
@@ -92,7 +99,9 @@ export function CadToolbar({ value, onChange }: Props) {
           ? value.entities.map((entity) => entity.kind === 'dimension' && picked.has(entity.id) ? { ...entity, text: dimensionText.trim() ? dimensionText : undefined } : entity)
           : value.entities;
         onChange({ ...value, dimensionText, entities });
-      }} /></label></>}
+        }} /></label>
+        {value.dimensionText.trim() && <button type="button" className="cad-ribbon__clear" title="清空數值，改回自動量測" onClick={() => onChange({ ...value, dimensionText: '' })}>清除</button>}
+      </>}
       {value.activeTool === 'array' && <>
         <label className="cad-ribbon__select">陣列<select value={value.arrayMode} onChange={(event) => onChange({ ...value, arrayMode: event.target.value as ArrayMode })}>{ARRAY_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></label>
         {value.arrayMode === 'rectangular' ? <><NumberControl label="列" value={value.arrayRows} min={1} max={20} onChange={(arrayRows) => onChange({ ...value, arrayRows })} /><NumberControl label="欄" value={value.arrayColumns} min={1} max={20} onChange={(arrayColumns) => onChange({ ...value, arrayColumns })} /></> : <NumberControl label="數量" value={value.arrayCount} min={2} max={36} onChange={(arrayCount) => onChange({ ...value, arrayCount })} />}

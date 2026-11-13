@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import { LABEL_FONT_STACK, placeLabels } from './textOverlay';
-import { SHEET_VIEW_WIDTH, type FurniturePrimitive } from './sheetFurniture';
+import { SHEET_VIEW_WIDTH, sheetPaper, type FurniturePrimitive } from './sheetFurniture';
 import type { DrawingTextLabel } from './types';
 
 export interface SheetSvgInput {
@@ -40,12 +40,13 @@ export function escapeXml(text: string): string {
 }
 
 /** 把圖框圖元轉成 SVG 片段。`data-layer` 供 DXF 匯出分層用。 */
-export function furnitureSvg(primitives: readonly FurniturePrimitive[], ink: string): string {
+export function furnitureSvg(primitives: readonly FurniturePrimitive[], ink: string, paper: string = sheetPaper(false)): string {
   const out: string[] = [];
   for (const primitive of primitives) {
     if (primitive.kind === 'rect') {
+      /* fill 代表「紙色底」，不是「墨色底」——用墨色填會把標題欄蓋成一大塊黑。 */
       out.push(
-        `<rect data-layer="FRAME" x="${number(primitive.x)}" y="${number(primitive.y)}" width="${number(primitive.w)}" height="${number(primitive.h)}" fill="${primitive.fill ? ink : 'none'}" stroke="${ink}" stroke-width="1.1" />`,
+        `<rect data-layer="FRAME" x="${number(primitive.x)}" y="${number(primitive.y)}" width="${number(primitive.w)}" height="${number(primitive.h)}" fill="${primitive.fill ? paper : 'none'}" stroke="${ink}" stroke-width="1.1" />`,
       );
     } else if (primitive.kind === 'line') {
       out.push(
@@ -104,13 +105,15 @@ export function nestDraftSvg(svg: string, viewHeight: number): string {
 /** 合成整張圖面。輸出是獨立 SVG（不含任何外部資源），可直接光柵化或存檔。 */
 export function buildSheetSvg(input: SheetSvgInput): string {
   const ink = input.dark ? SHEET_INK.dark : SHEET_INK.light;
+  const paper = input.background ?? sheetPaper(input.dark);
   const width = SHEET_VIEW_WIDTH;
   const height = number(input.viewHeight);
   const parts: string[] = [];
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${input.width}" height="${input.height}" viewBox="0 0 ${width} ${height}" font-family="${escapeXml(LABEL_FONT_STACK)}">`,
   );
-  if (input.background) parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${input.background}" />`);
+  /* 一律鋪紙色：沒有底色時 PNG 會是透明底，圖框填白也會變成透明，看起來就像缺了標題欄。 */
+  parts.push(`<rect x="0" y="0" width="${width}" height="${height}" fill="${escapeXml(paper)}" />`);
   if (input.imageRef) {
     parts.push(
       `<image x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none" href="${escapeXml(input.imageRef)}" xlink:href="${escapeXml(input.imageRef)}" />`,
@@ -119,10 +122,9 @@ export function buildSheetSvg(input: SheetSvgInput): string {
   if (input.draftSvg) parts.push(nestDraftSvg(input.draftSvg, height));
   /* 標示用紙色描邊（halo）墊底：即使壓到線稿也讀得出來，這正是使用者抱怨「文字被圖面吃掉」的解法。 */
   if (input.labels?.length) {
-    const paper = input.background ?? (input.dark ? '#0f1a26' : '#ffffff');
     parts.push(labelsSvg(input.labels, input.width, input.height, height, ink, paper));
   }
-  if (input.furniture?.length) parts.push(furnitureSvg(input.furniture, ink));
+  if (input.furniture?.length) parts.push(furnitureSvg(input.furniture, ink, paper));
   parts.push('</svg>');
   return parts.join('');
 }

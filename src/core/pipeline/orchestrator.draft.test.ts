@@ -90,16 +90,22 @@ describe('草稿 → HTML/SVG → 提示詞 → 純生成', () => {
 
   it('先擬草稿、再判讀改寫，最後才用改寫後的提示詞生圖', async () => {
     const board = await generate(intent(), deps(settingsFor()));
-    expect(calls.map((c) => c.mode)).toEqual(['text', 'text', 'image']);
+    /* 文字模型先精煉提示詞，再製作草稿，之後才交給生圖模型：三段文字工作 + 一次生圖。 */
+    expect(calls.map((c) => c.mode)).toEqual(['text', 'text', 'text', 'image']);
+    /* 第一段仍是精煉提示詞（改寫成生圖用的完整描述），草稿才是第二段。 */
+    expect(String(calls[0].input.draft ?? '') + String(calls[0].input.subject ?? '')).toContain('bracket');
     const prompt = String(imageCalls()[0].input.prompt);
     expect(prompt).toContain('mechanical bracket');
     expect(board.resolvedPrompt).toBe(prompt);
   });
 
-  it('草稿圖不再當附圖送出，即使引擎具備局部重繪能力', async () => {
+  it('草稿檢視圖當作第一張附圖送出（生圖模型視覺辨識草稿）', async () => {
     canvasAvailable = true;
     await generate(intent(), deps(settingsFor({ inpaint: true })));
-    expect(imageCalls()[0].input.images).toBeUndefined();
+    const images = imageCalls()[0].input.images as { mimeType: string }[] | undefined;
+    // 沒有使用者參考圖時，唯一附圖就是草稿線稿 —— 版面靠它表達，而不是靠文字。
+    expect(images).toHaveLength(1);
+    expect(images?.[0].mimeType).toBe('image/png');
   });
 
   it('使用者自己的參考圖仍然照送', async () => {
@@ -109,8 +115,21 @@ describe('草稿 → HTML/SVG → 提示詞 → 純生成', () => {
     ] } as never;
     await generate(withReference, deps(settingsFor()));
     const images = imageCalls()[0].input.images as { base64: string }[];
+    // 草稿排第一（版面依據），使用者參考圖其後（只決定外觀）。
+    expect(images).toHaveLength(2);
+    expect(images[1].base64).toBe('cmVm');
+  });
+
+  it('沿用的精煉成果帶著草稿檢視圖，重試時不必重新點陣化', async () => {
+    canvasAvailable = true;
+    const onPrepared = vi.fn();
+    await generate(intent(), { ...deps(settingsFor()), onPrepared });
+    const prepared = onPrepared.mock.calls[0][0];
+    expect(prepared.draft.view?.mimeType).toBe('image/png');
+    imageCalls().length = 0;
+    await generate(intent(), deps(settingsFor()), { reuse: prepared });
+    const images = imageCalls()[0].input.images as unknown[] | undefined;
     expect(images).toHaveLength(1);
-    expect(images[0].base64).toBe('cmVm');
   });
 
   it('判讀階段拿到 HTML 原始碼與草稿檢視圖', async () => {
@@ -187,7 +206,9 @@ describe('草稿 → HTML/SVG → 提示詞 → 純生成', () => {
 
   it('草稿階段用 SVG 指令，不沿用精煉用的幾何描述指令', async () => {
     await generate(intent(), deps(settingsFor()));
-    const systemPrompt = String(calls[0].input.systemPrompt);
+    const draftCall = calls.find((c) => String(c.input.systemPrompt ?? '').includes('```html'));
+    expect(draftCall).toBeDefined();
+    const systemPrompt = String(draftCall?.input.systemPrompt ?? '');
     expect(systemPrompt).toMatch(/<svg>/);
     expect(systemPrompt).toContain('```html');
     expect(systemPrompt).not.toContain('one concise geometry paragraph');

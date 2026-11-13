@@ -19,7 +19,7 @@ export interface FurnitureRectPrimitive {
   h: number;
   /** 只描邊的框架 */
   stroke: boolean;
-  /** 填白底（避免疊在圖面上時透出底色） */
+  /** 填紙色底（避免疊在圖面上時透出底色）。紙色不等於墨色：填墨色會變成一大塊黑。 */
   fill: boolean;
   role: 'frame' | 'cell' | 'bar';
 }
@@ -48,6 +48,14 @@ export type FurniturePrimitive = FurnitureRectPrimitive | FurnitureLinePrimitive
 
 /** 圖面單位 → 像素的等比換算（寬度固定 1000）。 */
 export const SHEET_VIEW_WIDTH = 1000;
+
+/** 紙色：圖框內填白的顏色。與墨色成對，畫布與匯出必須共用同一組值。 */
+export const SHEET_PAPER = { light: '#ffffff', dark: '#0f1a26' } as const;
+
+/** 依線條風格取得紙色（藍圖模式為深紙）。 */
+export function sheetPaper(dark: boolean): string {
+  return dark ? SHEET_PAPER.dark : SHEET_PAPER.light;
+}
 
 export function sheetViewHeight(width: number, height: number): number {
   if (!(width > 0) || !(height > 0)) return 700;

@@ -1,5 +1,5 @@
 /* Generation pipeline with finite priority fallback. */
-import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt } from '../prompt/builder';
+import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt, sheetOverlayGuard } from '../prompt/builder';
 import {
   buildDraftPromptRequest,
   buildDraftPromptSystemPrompt,
@@ -91,6 +91,15 @@ export async function executeWithFallback<T>(
   throw new ProviderFallbackError(attempts);
 }
 
+/**
+ * 從精煉後的骨架提示詞取出 Subject 行（精煉階段就是把這一行換成模型改寫的描述）。
+ * 草稿階段沿用同一段描述，精煉與草稿才是同一件事的兩步，而不是兩個各自的猜測。
+ */
+function refinedSubjectOf(prompt: string): string | undefined {
+  const line = prompt.match(/^Subject: *(.*)$/m)?.[1]?.trim();
+  return line && line !== 'unspecified component' ? line : undefined;
+}
+
 async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<{ prompt: string; fromModel: boolean }> {
   const draft = buildPositivePrompt(intent);
   const selected = deps.settings.activeTextProvider;
@@ -136,7 +145,7 @@ async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<{ pr
    寧可少一張草稿，也不要讓整個流程掛掉。
    --------------------------------------------------------------------------- */
 
-async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSvg | null> {
+async function buildDraft(intent: DrawingIntent, deps: RunDeps, refinedSubject?: string): Promise<DraftSvg | null> {
   const selected = deps.settings.activeTextProvider;
   if (selected === 'none') return null;
 
@@ -154,7 +163,7 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSv
             mode: 'text',
             input: {
               draft: 'Produce the SVG construction draft now.',
-              subject: buildDraftRequest(intent),
+              subject: buildDraftRequest(intent, refinedSubject),
               /* 這一段的任務是「畫出幾何」而不是「寫出幾何描述」，
                  所以整組系統指令換掉，不沿用精煉用的規則。 */
               systemPrompt: buildDraftSystemPrompt(),
@@ -198,9 +207,15 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps): Promise<DraftSv
    這一步刻意與生成分離：翻譯拿不到結果時退回草稿幾何摘要，生成不受影響。
    --------------------------------------------------------------------------- */
 
-async function translateDraftToPrompt(intent: DrawingIntent, draft: DraftSvg, deps: RunDeps): Promise<string | null> {
+interface TranslatedDraftPrompt {
+  prompt: string | null;
+  /** 這次翻譯用的草稿檢視圖，沿用給生圖端點，避免重新點陣化。 */
+  view?: { mimeType: string; base64: string };
+}
+
+async function translateDraftToPrompt(intent: DrawingIntent, draft: DraftSvg, deps: RunDeps): Promise<TranslatedDraftPrompt> {
   const selected = deps.settings.activeTextProvider;
-  if (selected === 'none') return null;
+  if (selected === 'none') return { prompt: null };
 
   /* HTML 的視覺內容就是內嵌的那張 SVG：把它點陣化成模型看得懂的檢視圖，
      HTML 原始碼另外以文字形式附上。點陣化失敗（例如環境沒有 canvas）就只送
@@ -246,10 +261,11 @@ async function translateDraftToPrompt(intent: DrawingIntent, draft: DraftSvg, de
       }),
     );
     /* 模型可能把草稿原封不動吐回來；那不是提示詞，寧可退回摘要。 */
-    return normalizeDraftPrompt(result) || null;
+    return { prompt: normalizeDraftPrompt(result) || null, view };
   } catch {
     deps.signal.throwIfAborted();
-    return null;
+    /* 翻譯失敗仍把檢視圖帶回去：生圖端點看得到草稿版面，只是少了潤飾後的提示詞。 */
+    return { prompt: null, view };
   }
 }
 
@@ -262,38 +278,42 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
   if (reused && reused.key !== key) {
     throw new ProviderError('圖面內容已變更，請全部重新產生', 'pipeline', undefined, undefined, 'configuration');
   }
-  // 先讓文字模型擬草稿；失敗就當作沒有草稿，絕不因此中斷生成。
-  const draft = reused ? structuredClone(reused.draft) : await buildDraft(intent, deps);
-  /* 草稿成功時就不再跑一次「精煉主體描述」：草稿已經把實際幾何、視圖擺位寫成座標，
-     比一段文字描述資訊量更高，再叫一次文字模型只是多一次延遲與費用。
-     草稿失敗時才走原本的精煉路徑，維持既有行為不變。 */
-  const resolved = reused ? { prompt: reused.basePrompt, fromModel: true }
-    : draft ? { prompt: buildPositivePrompt(intent), fromModel: true }
-    : await resolvePrompt(intent, deps);
+  /* 使用者的流程是固定的三步：文字模型先依提示詞與選項精煉提示詞 → 依精煉結果擬草稿
+     → 草稿交給生圖模型。所以精煉一定要在草稿之前跑，草稿再把精煉出來的描述帶進去。
+     重用上次成果時兩段都跳過：精煉過的提示詞與草稿已經存在快取裡。 */
+  const resolved = reused ? { prompt: reused.basePrompt, fromModel: true } : await resolvePrompt(intent, deps);
   const basePrompt = resolved.prompt;
+  deps.signal.throwIfAborted();
+  // 草稿失敗就當作沒有草稿，絕不因此中斷生成。
+  const draft = reused ? structuredClone(reused.draft) : await buildDraft(intent, deps, refinedSubjectOf(basePrompt));
   deps.signal.throwIfAborted();
   /* 草稿只判讀一次：翻譯出來的提示詞跟著草稿一起進快取，重試時不必再問一次模型。
      已有快取時直接沿用上次的翻譯成果 —— 這正是「沿用上次文字模型內容」的意義。 */
-  const finalPrompt = draft
-    ? (reused ? reused.draft?.finalPrompt ?? null : await translateDraftToPrompt(intent, draft, deps))
-    : null;
-  const preparedDraft = draft ? { ...draft, finalPrompt: finalPrompt ?? undefined } : null;
+  const translated = draft && !reused ? await translateDraftToPrompt(intent, draft, deps) : null;
+  const finalPrompt = draft ? (reused ? reused.draft?.finalPrompt ?? null : translated?.prompt ?? null) : null;
+  /* 檢視圖跟著草稿一起快取：重試或「沿用上次」時生圖端點仍看得到同一張版面。 */
+  const draftView = reused ? reused.draft?.view : translated?.view;
+  const preparedDraft = draft ? { ...draft, finalPrompt: finalPrompt ?? undefined, view: draftView } : null;
   deps.signal.throwIfAborted();
   // Publish before image generation: errors/timeouts must not lose successful text work.
   if (resolved.fromModel) deps.onPrepared?.({ key, draft: preparedDraft, basePrompt });
   /* 翻譯成功就用它；失敗則退回「骨架＋草稿幾何摘要」，資訊較少但仍可生圖。
-     兩者都只給提示詞，草稿圖不隨行 —— 附圖會把請求改成帶圖編輯。 */
-  const textualPrompt = draft ? mergeDraftIntoPrompt(basePrompt, draft, false) : basePrompt;
+     兩條路都只是提示詞；版面靠下面單獨附上的草稿檢視圖表達。 */
+  const textualPrompt = draft ? mergeDraftIntoPrompt(basePrompt, draft, Boolean(draftView)) : basePrompt;
   /* 改寫後的提示詞同樣不准畫字：文字一律由應用程式事後補回。 */
   const guard = draft ? labelGuard(draft.labels?.length ?? 0) : '';
+  /* 改寫後的提示詞可能把「留白給圖框」那句吃掉，所以圖框疊加與不留文字兩道保險
+     都要接在最後，最終送出去的提示詞一定帶得到。 */
   const prompt = finalPrompt
-    ? (guard ? `${finalPrompt}\n\n${guard}` : finalPrompt)
+    ? [finalPrompt, sheetOverlayGuard(intent), guard].filter(Boolean).join('\n\n')
     : textualPrompt;
   const configs = preferredFirst(deps.settings.providers, deps.settings.activeImageProvider);
   const { width, height } = deps.settings.canvas;
-  const images = (intent.references ?? [])
+  const references = (intent.references ?? [])
     .filter((r) => r.mimeType.startsWith('image/'))
     .map((r) => ({ mimeType: r.mimeType, base64: r.dataUrl.split(',')[1] ?? '' }));
+  /* 草稿圖排在第一位：它是版面依據，使用者的參考圖只決定外觀。 */
+  const images = draftView ? [draftView, ...references] : references;
   let referenceNotes = '';
   for (const r of intent.references ?? []) {
     if (r.mimeType !== 'text/plain') continue;
@@ -311,7 +331,7 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
             negativePrompt: buildNegativePrompt(intent),
             width,
             height,
-            /* 只有使用者自己上傳的參考圖；程式生的草稿不再上車。 */
+            /* 第一張是草稿檢視圖（版面依據），其後才是使用者上傳的參考圖（外觀）。 */
             images: images.length ? images : undefined,
             referenceNotes: referenceNotes || undefined,
           },

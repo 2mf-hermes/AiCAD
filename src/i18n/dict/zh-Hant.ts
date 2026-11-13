@@ -46,11 +46,11 @@ export const zhHant = {
   intent: {
     kindSection: '圖面類型',
     textSection: '語言與文字',
-    textRenderMode: '圖面文字',
-    textRenderModeHint: '標題、標示與註記由誰繪製',
-    textRenderApplication: '由應用程式精確繪製',
+    textRenderMode: '圖面文字模式',
+    textRenderModeHint: '生圖前就要選定，會改變圖面本身；標題欄與比例尺一律由應用程式疊加',
+    textRenderApplication: '應用程式精確疊加模式',
     textRenderTextModel: '文字模型疊加',
-    textRenderImageModel: '由生圖模型繪製',
+    textRenderImageModel: '生圖模型繪製模式',
     customFieldsSection: '自訂標題欄位',
     kindLabel: '類別',
     kindHint: '決定視角配置與標註慣例',
@@ -94,7 +94,8 @@ export const zhHant = {
     sheetDate: '日期',
     sheetDateHint: '留空則不顯示日期',
     dateToday: '今天',
-    addField: '新增欄位',
+    addField: '新增欄位',
+    clearFields: '清除全部欄位',
     fieldValue: '值',
 
     extraSection: '附加條件',
@@ -199,6 +200,12 @@ export const zhHant = {
     restart: "全部重新產生",
   },
 
+  reuseDraft: {
+    title: '要再產生一次嗎？',
+    savedHint: '上次文字模型精煉過的提示詞與參考草稿還在。沿用可以直接把精煉提示詞與參考圖案送給生圖模型；重新精煉則會依目前設定再跑一次文字模型並產出新的參考草稿。',
+    reuse: '沿用精煉提示詞與草稿',
+    refine: '重新精煉提示詞',
+  },
   status: {
     ready: (name: string) => `就緒 · ${name}`,
     readyText: (name: string) => `文字就緒 · ${name}`,

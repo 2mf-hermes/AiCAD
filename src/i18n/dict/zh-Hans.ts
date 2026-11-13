@@ -39,11 +39,11 @@ export const zhHans: Dict = {
   intent: {
     kindSection: '图纸类型',
     textSection: '语言与文字',
-    textRenderMode: '图面文字',
-    textRenderModeHint: '标题、标示与注记由谁绘制',
-    textRenderApplication: '由应用程式精确绘制',
+    textRenderMode: '图面文字模式',
+    textRenderModeHint: '生图前就要选定，会改变图面本身；标题栏与比例尺一律由应用程序叠加',
+    textRenderApplication: '应用程序精确叠加模式',
     textRenderTextModel: '文字模型叠加',
-    textRenderImageModel: '由生图模型绘制',
+    textRenderImageModel: '生图模型绘制模式',
     customFieldsSection: '自定义标题栏',
     kindLabel: '类别',
     kindHint: '决定视图配置与标注惯例',
@@ -88,7 +88,8 @@ export const zhHans: Dict = {
     sheetDate: '日期',
     sheetDateHint: '留空则不显示日期',
     dateToday: '今天',
-    addField: '新增字段',
+    addField: '新增字段',
+    clearFields: '清除全部栏位',
     fieldValue: '值',
 
     extraSection: '附加条件',
@@ -192,6 +193,12 @@ export const zhHans: Dict = {
     restart: "全部重新生成",
   },
 
+  reuseDraft: {
+    title: '要再生成一次吗？',
+    savedHint: '上次文字模型精炼过的提示词与参考草稿还在。沿用可以直接把精炼提示词与参考图案送给生图模型；重新精炼则会依目前设置再跑一次文字模型并产出新的参考草稿。',
+    reuse: '沿用精炼提示词与草稿',
+    refine: '重新精炼提示词',
+  },
   status: {
     ready: (name) => `就绪 · ${name}`,
     readyText: (name) => `文字就绪 · ${name}`,
