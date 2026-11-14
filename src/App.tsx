@@ -198,6 +198,29 @@ function Workspace({
   const [zoomBoxMode, setZoomBoxMode] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [cadWorkspace, setCadWorkspace] = useState(initialCadWorkspaceRef.current);
+  /* 工具繪圖跟著歷程走：cadWorkspace 只是「目前這一筆」的工作副本。
+     切換歷程時先把畫面上這份寫回上一筆，再載入下一筆自己那份。先前它是整個
+     程式的全域狀態，所以 A 圖畫的線會黏在 B 圖上（被回報的問題）。 */
+  const cadWorkspaceRef = useRef(cadWorkspace);
+  cadWorkspaceRef.current = cadWorkspace;
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  /** 目前畫面上這份工具繪圖屬於哪一筆歷程。載入專案／開新檔時由外部指定。 */
+  const cadOwnerRef = useRef<string | null>(null);
+  const flushCadWorkspace = useCallback((owner: string | null) => {
+    if (!owner) return;
+    const drawing = cadWorkspaceRef.current;
+    setHistory((prev) => prev.map((board) => (board.id === owner ? { ...board, cadWorkspace: drawing } : board)));
+  }, []);
+
+  useEffect(() => {
+    if (cadOwnerRef.current === currentId) return;
+    const previous = cadOwnerRef.current;
+    const incoming = currentId ? historyRef.current.find((board) => board.id === currentId) : undefined;
+    cadOwnerRef.current = currentId;
+    flushCadWorkspace(previous);
+    setCadWorkspace(incoming?.cadWorkspace ?? createDefaultCadWorkspace());
+  }, [currentId, flushCadWorkspace]);
   const [run, setRun] = useState<RunState>({ kind: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
   const draftCacheRef = useRef(new DraftCache());
@@ -271,6 +294,7 @@ function Workspace({
     setZoomBoxMode(false);
     setShowGrid(true);
     const nextCadWorkspace = createDefaultCadWorkspace();
+    cadOwnerRef.current = null;
     setCadWorkspace(nextCadWorkspace);
     savedSnapshotRef.current = JSON.stringify({ intent: nextIntent, history: [], currentId: null, masks: [], showGrid: true, cadWorkspace: nextCadWorkspace });
     setRun({ kind: 'idle' });
@@ -281,11 +305,17 @@ function Workspace({
     const trimmedName = name.trim();
     if (!trimmedName) return;
     const id = projectId ?? createSafeId('project');
+    /* 存檔時把「畫面上這份」工具繪圖一起寫進目前這筆歷程，否則剛畫的線
+       只活在記憶體裡，下次開檔就不見了。 */
+    const historyWithDrawing = currentId
+      ? history.map((board) => (board.id === currentId ? { ...board, cadWorkspace: cadWorkspaceRef.current } : board))
+      : history;
     try {
-      await saveProject({ schemaVersion: 1, id, name: trimmedName, updatedAt: Date.now(), intent, history, currentId, masks, showGrid, cadWorkspace });
+      await saveProject({ schemaVersion: 1, id, name: trimmedName, updatedAt: Date.now(), intent, history: historyWithDrawing, currentId, masks, showGrid, cadWorkspace });
       setProjectId(id);
       setProjectName(trimmedName);
-      savedSnapshotRef.current = projectSnapshot;
+      if (historyWithDrawing !== history) setHistory(historyWithDrawing);
+      savedSnapshotRef.current = JSON.stringify({ intent, history: historyWithDrawing, currentId, masks, showGrid, cadWorkspace });
       setProjectDialog(null);
       setRun({ kind: 'idle' });
       if (closeAfterSaveRef.current) {
@@ -350,8 +380,13 @@ function Workspace({
       setCurrentId(project.currentId);
       setMasks(project.masks);
       setShowGrid(project.showGrid);
-      setCadWorkspace(project.cadWorkspace ?? createDefaultCadWorkspace());
-      savedSnapshotRef.current = JSON.stringify({ intent: project.intent, history: project.history, currentId: project.currentId, masks: project.masks, showGrid: project.showGrid, cadWorkspace: project.cadWorkspace ?? createDefaultCadWorkspace() });
+      /* 目前這筆歷程自己有工具繪圖就用它；舊檔（或還沒畫過）才退回專案層級的那份。 */
+      const restoredCad = project.history.find((board) => board.id === project.currentId)?.cadWorkspace
+        ?? project.cadWorkspace
+        ?? createDefaultCadWorkspace();
+      cadOwnerRef.current = project.currentId;
+      setCadWorkspace(restoredCad);
+      savedSnapshotRef.current = JSON.stringify({ intent: project.intent, history: project.history, currentId: project.currentId, masks: project.masks, showGrid: project.showGrid, cadWorkspace: restoredCad });
       setMaskMode(false);
       setZoomBoxMode(false);
       // 「不儲存」與直接開啟都必須在同一次操作中關閉確認框；不可留下遮罩要求再按取消。
@@ -394,6 +429,7 @@ function Workspace({
         setZoomBoxMode(false);
         setShowGrid(true);
         const nextCadWorkspace = createDefaultCadWorkspace();
+        cadOwnerRef.current = null;
         setCadWorkspace(nextCadWorkspace);
         savedSnapshotRef.current = JSON.stringify({ intent: nextIntent, history: [], currentId: null, masks: [], showGrid: true, cadWorkspace: nextCadWorkspace });
         setRun({ kind: 'idle' });

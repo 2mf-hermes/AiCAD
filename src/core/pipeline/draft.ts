@@ -130,11 +130,31 @@ export function buildDraftRequest(intent: DrawingIntent, refinedSubject?: string
   if (wantsLabels) {
     lines.push(`Labels: add up to 30 short <text> labels in ${LABEL_LANGUAGE[intent.textLanguage]} (view names, part callouts, short notes).`);
     const dims = Object.entries(intent.measurements ?? {}).filter(([k, v]) => k.trim() && v.trim());
-    if (dims.length) lines.push(`Supplied dimension values (place each value beside its dimension line as a <text> label): ${dims.map(([k, v]) => `${k} = ${v}`).join('; ')}`);
+    if (dims.length) {
+      /* 草稿上的文字是給人看的示意，不是成品文字：應用程式繪製模式下，成品文字由視圖模型
+         定位後才寫上去。以前這裡叫模型「把值寫在尺寸線旁邊」，那份草稿會被生圖模型當成
+         範本照抄 —— 標註數值就這樣被烤進圖裡。改成「只畫尺寸線、值僅供你理解」。 */
+      lines.push(
+        intent.text?.renderMode === 'image-model'
+          ? `Supplied dimension values (place each value beside its dimension line as a <text> label): ${dims.map(([k, v]) => `${k} = ${v}`).join('; ')}`
+          : `Dimension values the finished sheet will carry (for your understanding only — draw the dimension lines and arrowheads, but leave them unlettered): ${dims.map(([k, v]) => `${k} = ${v}`).join('; ')}`,
+      );
+    }
   } else {
     lines.push('Labels: none. Do NOT include any <text> element.');
   }
-  return `${lines.join('\n')}\n\nDraft the sheet geometry as SVG, then embed that same SVG in the HTML document.`;
+  /* 給標註列一次「這張圖的圖紙尺寸」── 否則模型只能自己猜圖框長寬比，
+     畫出來的版面跟系統實際預留的標題欄位置對不上。 */
+  lines.push(`Sheet aspect ratio: ${(SHEET_W / SHEET_H).toFixed(3)} (width:height), landscape.`);
+  /* 結尾那句以前會被 provider 的 `instruction`（"Answer with the ```svg block, then the ```html
+     block, and nothing else."）整段蓋掉——兩個 ``` 落在同一個模板字串裡會把文字吃掉，
+     模型因此常常只交 SVG 或只交 HTML，草稿階段就等於失敗。模板只由我方產生，
+     這裡改用組字方式拼出圍籬，不讓任何一段被誤判。 */
+  const fence = '`'.repeat(3);
+  return [
+    lines.join('\n'),
+    `Draft the sheet geometry as SVG in a ${fence}svg block, then embed that same SVG in the HTML document in a ${fence}html block.`,
+  ].join('\n\n');
 }
 
 /* ---------------------------------------------------------------------------
@@ -273,7 +293,10 @@ export function summarizeDraft(svg: string): string {
 
   const detail = parts.length ? parts.join(', ') : 'no geometry';
   const extent = span > 0 ? `geometry extends to about ${Math.round(span)} on a 1000-unit sheet` : '';
-  return truncate(`Construction draft: ${detail}${extent ? `; ${extent}` : ''}.`, SUMMARY_LIMIT);
+  /* 以前硬截在字元中間，摘要會停在半句話上，生圖模型讀到的是一段斷掉的描述。
+     先截再補句點，寧可少一兩個詞，也不要送出殘句。 */
+  const summary = truncate(`Construction draft: ${detail}${extent ? `; ${extent}` : ''}.`, SUMMARY_LIMIT);
+  return /[.!?]$/.test(summary) ? summary : `${summary.replace(/[,;\s]+$/, '')}.`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -333,7 +356,9 @@ export function mergeDraftIntoPrompt(basePrompt: string, draft: DraftSvg, attach
     basePrompt,
     '',
     attached
-      ? 'The first attached image is an untextured construction draft. Follow its geometry, view placement and proportions.'
+      /* 這裡原本寫「untextured（無文字）」—— 但草稿其實帶了視圖名稱等文字，
+         生圖模型於是照抄那些字。改成明講「草稿上的字只是示意，成品不要有字」。 */
+      ? 'The first attached image is a construction draft. Follow its geometry, view placement and proportions; any lettering on the draft is schematic only and must not appear in the finished drawing.'
       : 'A construction draft was prepared for this sheet; follow it for geometry, view placement and proportions.',
     draft.summary,
     attached

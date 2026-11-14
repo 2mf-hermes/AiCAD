@@ -113,6 +113,11 @@ export interface RefinePromptInput {
    * 與 systemPrompt 分開，是為了不必把固定規則複製到每個呼叫端。
    */
   instruction?: string;
+  /**
+   * 這一輪需要的輸出長度上限（token）。精煉只要一兩百字，草稿卻要幾千個 token 的
+   * SVG，兩者共用同一個小上限就是「精煉成功、草稿一直被截斷」的來源。
+   */
+  maxOutputTokens?: number;
 }
 
 export interface GenerateImageInput {

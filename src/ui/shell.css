@@ -725,8 +725,11 @@
      連帶讓圖面標題輸入框超出區塊邊界。 */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--sp-2);
-  margin: 2px 0 8px 12px;
-  padding-left: var(--sp-3);
+  /* 使用者反應「輸入框仍緊貼區塊邊線」：左邊的 12px 偏移只有內縮一半，
+     而右側完全沒有留白，輸入框右緣直接壓在區塊邊線上。
+     這裡把內距四周補齊（右側與左側軌道等寬），輸入框才真的離開邊線。 */
+  margin: 2px 0 10px 12px;
+  padding: 2px var(--sp-3) 2px var(--sp-3);
   border-left: 1px solid var(--line-hairline);
   /* 收縮到父層寬度：min-width:0 讓 grid 子項可以比內容窄，輸入框才不會頂出區塊。 */
   min-width: 0;
@@ -739,6 +742,11 @@
   min-width: 0;
   /* 數值輸入框多一點左內距：與圖框內文字的左留白對齊，看起來才不會貼邊。 */
   column-gap: var(--sp-2);
+}
+/* 單欄（圖面標題）也要撐滿可用的內距，不然輸入框會縮成半寬。 */
+.intent-subblock .field,
+.intent-subblock .dimrow {
+  max-width: 100%;
 }
 /* 日期列只有「日期控制項 + 今天按鈕」兩欄；這條一定要排在 .intent-subblock .dimrow 之後，
    否則三欄的預設會蓋回去，日期框被壓成 88px、今天按鈕卻吃掉其餘寬度。 */
@@ -767,12 +775,14 @@
   grid-template-columns: minmax(0, max-content);
   justify-content: start;
 }
-/* 圖面標題常是很長的字串：不要撐破版面，超出用省略號。 */
+/* 圖面標題常是很長的字串：不要撐破版面，超出用省略號。
+   左右內距再收一點（區塊本身已有四周內距），文字才不會貼著輸入框邊線。 */
 .intent-subblock .dimrow > .input {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
   text-overflow: ellipsis;
+  padding: 0 var(--sp-2);
 }
 
 /* ---- 右欄：草稿區塊 ---- */

@@ -5,6 +5,7 @@
    ========================================================================== */
 
 import type { AnnotationPlacement } from './annotationOverlay';
+import type { CadWorkspaceState } from './cad';
 
 /** 圖面類型 —— 決定提示語骨架與預設標註慣例 */
 export type DrawingKind =
@@ -134,6 +135,14 @@ export interface Artboard {
    * 只有「應用程式精確疊加」模式會產生與使用；沒有它就一直用固定標註帶。
    */
   annotationPlacements?: AnnotationPlacement[];
+  /**
+   * 這一筆歷程自己的工具繪圖（線、圓、圖塊、圖層、鎖點…）。
+   *
+   * 工具列畫的東西屬於「正在看的這張圖」，不屬於整個程式：先前它存在 App 的
+   * 全域狀態裡，切換歷程時 A 圖畫的線會黏在 B 圖上。舊檔沒有這個欄位，讀到
+   * undefined 就當作這一筆沒畫過東西。
+   */
+  cadWorkspace?: CadWorkspaceState;
 }
 
 /** 顯示順序的單一來源。標籤文字改由 i18n 字典提供（t.kind / t.lineStyle），

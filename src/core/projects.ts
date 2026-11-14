@@ -139,7 +139,11 @@ function normalizeArtboard(value: unknown, intent: DrawingIntent): Artboard | nu
   if (!imageRef) return null;
   const width = raw.width; const height = raw.height;
   if (typeof width !== 'number' || !Number.isFinite(width) || width <= 0 || typeof height !== 'number' || !Number.isFinite(height) || height <= 0) return null;
-  return { id: asString(raw.id) || createSafeId('project'), createdAt: asTimestamp(raw.createdAt), imageRef, width, height, intent: normalizeIntent(raw.intent, intent), parentId: asString(raw.parentId) || undefined, masks: normalizeMasks(raw.masks), resolvedPrompt: asString(raw.resolvedPrompt), providerId: asString(raw.providerId, 'legacy'), model: asString(raw.model, '(legacy)'), textLabels: normalizeTextLabels(raw.textLabels) };
+  /* 工具繪圖是「一筆歷程一份」：只有真的畫過東西的歷程才寫這個欄位，
+     舊檔整批讀進來時才不會每張圖都多背一份預設工作區。 */
+  const boardCad = asRecord(raw.cadWorkspace);
+  const cadWorkspace = Object.keys(boardCad).length > 0 ? normalizeCadWorkspace(boardCad) : undefined;
+  return { id: asString(raw.id) || createSafeId('project'), createdAt: asTimestamp(raw.createdAt), imageRef, width, height, intent: normalizeIntent(raw.intent, intent), parentId: asString(raw.parentId) || undefined, masks: normalizeMasks(raw.masks), resolvedPrompt: asString(raw.resolvedPrompt), providerId: asString(raw.providerId, 'legacy'), model: asString(raw.model, '(legacy)'), textLabels: normalizeTextLabels(raw.textLabels), cadWorkspace };
 }
 
 /** Safely migrates historic project documents before any UI state is updated. */

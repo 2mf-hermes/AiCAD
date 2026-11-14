@@ -13,6 +13,9 @@ interface Props { value: CadWorkspaceState; onChange: (next: CadWorkspaceState) 
    小圖示按鈕（或大圖示）＋面板標題，面板之間用 1px 直線分隔。
    這樣 30 多個指令才能在單列高度內全部看得到，不必先開下拉選單。 */
 type PanelId = 'draw' | 'modify' | 'annotate' | 'control';
+/* 頁籤＝功能區分頁：AutoCAD 每個頁籤底下是它自己那一組面板。
+   'common' 是「常用」——所有面板一起顯示，這是預設視圖。 */
+type RibbonTab = 'common' | PanelId;
 
 interface ToolDef { id: CadTool; label: string; shortcut?: string; icon: ToolIconName; large?: boolean }
 
@@ -52,6 +55,9 @@ export function CadToolbar({ value, onChange }: Props) {
   const [showLayer, setShowLayer] = useState(false);
   const [showSnap, setShowSnap] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  /* 頁籤目前選的是哪一個：底線指示器跟著它走，面板也只留它那一組。
+     （先前底線寫死在「常用」上，使用者點別的頁籤也不會動。） */
+  const [activeTab, setActiveTab] = useState<RibbonTab>('common');
   const activeLayer = value.layers.find((layer) => layer.id === value.activeLayerId);
   const activeTool = ALL_TOOLS.find((tool) => tool.id === value.activeTool);
   /* 選到的尺寸標註要用它自己存的數值與類型顯示。
@@ -63,6 +69,9 @@ export function CadToolbar({ value, onChange }: Props) {
   const dimensionTextShown = pickedDimension?.text || value.dimensionText || '';
   const dimensionModeShown = pickedDimension?.mode ?? value.dimensionMode;
   const choose = (tool: CadTool) => { onChange({ ...value, activeTool: tool, command: '' }); };
+  /* 面板只留目前頁籤那一組；「常用」＝全部，維持原本一眼看到所有指令的設計。 */
+  const shownPanels: PanelId[] = activeTab === 'common' ? ['draw', 'modify', 'annotate', 'control'] : [activeTab];
+  const shows = (id: PanelId) => shownPanels.includes(id);
   useEffect(() => {
     const close = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) { setShowLayer(false); setShowSnap(false); }
@@ -91,12 +100,23 @@ export function CadToolbar({ value, onChange }: Props) {
     {/* 標題列：面板群組頁籤 + 目前指令 + 指令輸入（對應 AutoCAD 的 Quick Access 與 Command Line）。 */}
     <div className="cad-ribbon__tabbar">
       <div className="cad-ribbon__tabs" role="tablist" aria-label="工具頁籤">
-        <span className="cad-ribbon__tab" role="tab" aria-selected="true">常用</span>
-        {(['draw', 'modify', 'annotate', 'control'] as PanelId[]).map((id) => (
-          <span className="cad-ribbon__tab cad-ribbon__tab--muted" key={id} role="tab" aria-selected="false">{PANEL_TITLES[id]}</span>
+        {RIBBON_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className="cad-ribbon__tab"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            title={tab.id === 'common' ? '顯示全部工具面板' : `只顯示「${tab.label}」面板`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
         ))}
       </div>
       <div className="cad-ribbon__active" aria-live="polite">
+        {/* 窄視窗會收起 tab 列，這裡補上目前頁籤名稱，面板是顯示哪一組才看得出來。 */}
+        <span className="cad-ribbon__active-tab">{(RIBBON_TABS.find((tab) => tab.id === activeTab) ?? RIBBON_TABS[0]).label}</span>
         <span>目前工具</span>
         <strong>{activeTool?.label ?? '選取'}</strong>
         {activeTool?.shortcut && <kbd>{activeTool.shortcut}</kbd>}
@@ -130,17 +150,17 @@ export function CadToolbar({ value, onChange }: Props) {
 
     {!collapsed && (
       <div className="cad-ribbon__panels">
-        <Panel title="繪圖">
+        {shows('draw') && <Panel title="繪圖">
           <div className="cad-ribbon__toolgrid">{DRAW_TOOLS.map(toolButton)}</div>
-        </Panel>
-        <Panel title="修改">
+        </Panel>}
+        {shows('modify') && <Panel title="修改">
           <div className="cad-ribbon__toolgrid">{MODIFY_TOOLS.map(toolButton)}</div>
-        </Panel>
-        <Panel title="標註">
+        </Panel>}
+        {shows('annotate') && <Panel title="標註">
           <div className="cad-ribbon__toolgrid">{ANNOTATE_TOOLS.map(toolButton)}</div>
           <div className="cad-ribbon__toolgrid cad-ribbon__toolgrid--pair">{LIBRARY_TOOLS.map(toolButton)}</div>
-        </Panel>
-        <Panel title="圖層">
+        </Panel>}
+        {shows('control') && <Panel title="圖層">
           <div className="cad-ribbon__toolgrid cad-ribbon__toolgrid--pair">
             <div className="cad-ribbon__control">
               <button type="button" className="cad-ribbon__toggle" aria-expanded={showLayer} title={`圖層：${activeLayer?.name ?? '—'}`} onClick={() => setShowLayer(!showLayer)}>
@@ -171,7 +191,7 @@ export function CadToolbar({ value, onChange }: Props) {
               {showSnap && <div className="cad-ribbon__popover">{OSNAP_MODES.map((mode) => <label key={mode.value} className="cad-ribbon__check"><input type="checkbox" checked={value.osnapModes.includes(mode.value)} onChange={(event) => onChange({ ...value, osnapModes: event.target.checked ? [...value.osnapModes, mode.value] : value.osnapModes.filter((item) => item !== mode.value) })} />{mode.label}</label>)}</div>}
             </div>
           </div>
-        </Panel>
+        </Panel>}
         <Panel title="狀態" grow>
           <span className="cad-ribbon__status">物件 {value.entities.length} · 已選 {value.selectedEntityIds.length} · 圖塊 {value.blocks.length}</span>
         </Panel>
@@ -232,6 +252,14 @@ export function CadToolbar({ value, onChange }: Props) {
 }
 
 const PANEL_TITLES: Record<PanelId, string> = { draw: '繪圖', modify: '修改', annotate: '標註', control: '圖層' };
+/* 頁籤順序：常用排第一（預設），其後是四個面板各自的頁籤。 */
+const RIBBON_TABS: { id: RibbonTab; label: string }[] = [
+  { id: 'common', label: '常用' },
+  { id: 'draw', label: PANEL_TITLES.draw },
+  { id: 'modify', label: PANEL_TITLES.modify },
+  { id: 'annotate', label: PANEL_TITLES.annotate },
+  { id: 'control', label: PANEL_TITLES.control },
+];
 
 function Panel({ title, grow, children }: { title: string; grow?: boolean; children: ReactNode }) {
   return <div className={`cad-ribbon__panel${grow ? ' cad-ribbon__panel--grow' : ''}`}>

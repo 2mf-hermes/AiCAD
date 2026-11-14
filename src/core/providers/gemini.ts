@@ -81,7 +81,11 @@ export const geminiAdapter: ProviderAdapter = {
               ],
             },
           ],
-          generationConfig: { temperature: 0.2 },
+          /* 沒有 maxOutputTokens 時 Gemini 會用偏小的預設值，長 SVG 草稿會被截在半路；
+             呼叫端要長輸出時就明確要求（精煉不指定，維持原本行為）。 */
+          generationConfig: input.maxOutputTokens
+            ? { temperature: 0.2, maxOutputTokens: input.maxOutputTokens }
+            : { temperature: 0.2 },
         },
         headers(cfg, secret),
         cfg.timeoutSec * 1000,

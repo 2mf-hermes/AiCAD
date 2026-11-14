@@ -23,6 +23,7 @@ function baseFor(cfg: ProviderConfig): string {
 
 interface MessagesResponse {
   content?: { type?: string; text?: string }[];
+  stop_reason?: string;
 }
 
 function headers(cfg: ProviderConfig, secret: string): Record<string, string> {
@@ -82,7 +83,9 @@ export const anthropicAdapter: ProviderAdapter = {
         url,
         {
           model: cfg.textModel || 'claude-sonnet-4-5',
-          max_tokens: 700,
+          /* 精煉只回一兩百字，700 夠；草稿要幾千 token 的 SVG，沿用 700 一定被截斷
+             —— 那正是「精煉成功、草稿失敗」的成因。上限由呼叫端指定。 */
+          max_tokens: input.maxOutputTokens ?? 1_024,
           system: systemInstructionFor(input),
           messages: [
             {
@@ -100,6 +103,11 @@ export const anthropicAdapter: ProviderAdapter = {
       );
       const text = res.content?.find((b) => b.type === 'text')?.text?.trim();
       if (!text) throw new ProviderError('模型回應為空', 'anthropic');
+      /* 撞到 max_tokens 就是被硬切掉：截斷的 SVG 沒有收尾標籤、截斷的描述少了後半句，
+         兩者都不該被當成完整答案往下游送。讓呼叫端收到明確錯誤才能退回路徑。 */
+      if (res.stop_reason === 'max_tokens') {
+        throw new ProviderError('模型輸出達到長度上限被截斷', 'anthropic', undefined, undefined, 'invalid-response');
+      }
       return text;
     } catch (e) {
       throw toProviderError(e);

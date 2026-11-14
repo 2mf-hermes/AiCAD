@@ -1050,6 +1050,17 @@ function UpdatesPane({
     }
   }, [onChange, settings]);
 
+  /* 一進「更新」頁就自動檢查一次。
+     從更新提示框按「前往更新頁」會直接切到這一頁，使用者不該再按一次「檢查更新」
+     才知道到底有沒有新版 —— 那一步本來就是提示框已經確認過的事。 */
+  const autoCheckedRef = useRef(false);
+  useEffect(() => {
+    if (autoCheckedRef.current) return;
+    if (!supported || settings.updates.channel === 'none') return;
+    autoCheckedRef.current = true;
+    void check();
+  }, [check, supported, settings.updates.channel]);
+
   const download = useCallback(async () => {
     if (stage.kind !== 'available') return;
     const info = stage.info;

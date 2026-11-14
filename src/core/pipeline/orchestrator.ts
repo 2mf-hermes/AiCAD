@@ -148,6 +148,12 @@ async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<{ pr
    寧可少一張草稿，也不要讓整個流程掛掉。
    --------------------------------------------------------------------------- */
 
+/**
+ * SVG 草稿要的輸出長度。三視圖＋尺寸＋HTML 版本大約 4~8k token，
+ * 取 8k 讓「畫得細但完整」的草稿有空間；呼叫端換模型時也能靠這個值調整。
+ */
+const DRAFT_MAX_OUTPUT_TOKENS = 8_000;
+
 async function buildDraft(intent: DrawingIntent, deps: RunDeps, refinedSubject?: string): Promise<DraftSvg | null> {
   const selected = deps.settings.activeTextProvider;
   if (selected === 'none') return null;
@@ -170,7 +176,12 @@ async function buildDraft(intent: DrawingIntent, deps: RunDeps, refinedSubject?:
               /* 這一段的任務是「畫出幾何」而不是「寫出幾何描述」，
                  所以整組系統指令換掉，不沿用精煉用的規則。 */
               systemPrompt: buildDraftSystemPrompt(),
-              instruction: 'Answer with the ```svg block, then the ```html block, and nothing else.',
+              /* 圍籬用組字方式產生：這串文字會被塞進 provider 的訊息樣板，
+                 兩個連續的 ``` 會讓樣板把後半段當成程式碼區塊而吃掉。 */
+              instruction: `Answer with the ${'`'.repeat(3)}svg block, then the ${'`'.repeat(3)}html block, and nothing else.`,
+              /* SVG 草稿動輒數千 token；沿用精煉用的短上限，輸出一定被截斷在半路，
+                 於是每一輪都「精煉成功、草稿失敗」。這裡明確要足量輸出。 */
+              maxOutputTokens: DRAFT_MAX_OUTPUT_TOKENS,
               images: images.length ? images : undefined,
             },
           },
@@ -247,6 +258,8 @@ async function translateDraftToPrompt(intent: DrawingIntent, draft: DraftSvg, de
               subject: buildDraftPromptRequest(intent, draft, Boolean(view)),
               systemPrompt: buildDraftPromptSystemPrompt(),
               instruction: 'Answer with the prompt paragraph only.',
+              /* 提示詞段落比精煉長（要涵蓋版面），但遠短於草稿；給足餘裕避免截斷。 */
+              maxOutputTokens: 1_500,
               images: images.length ? images : undefined,
             },
           },

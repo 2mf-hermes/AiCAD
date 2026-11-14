@@ -114,6 +114,8 @@ export async function locateAnnotations(
               subject,
               systemPrompt: POSITION_SYSTEM_PROMPT,
               instruction: 'Return the JSON array now, and nothing else.',
+              /* 每列都有座標與文字，行數多時也不小；別讓它踩到精煉用的短上限。 */
+              maxOutputTokens: 1_500,
               /* 有圖就會走視圖模型（provider.ts 會用 visionModel）；這正是我們要的能力。 */
               images: [image],
             },

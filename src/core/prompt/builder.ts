@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import type { DrawingIntent, DrawingKind, LineStyle, MaskRegion, Unit } from '../types';
-import { annotationBandHeight } from '../annotationOverlay';
+import { annotationBandHeight, annotationOverlayActive, annotationRows } from '../annotationOverlay';
 import { describeRect, sheetLayout } from '../sheetLayout';
 
 /** 每種圖面類型的視角與構圖骨架 */
@@ -81,6 +81,9 @@ const BASELINE_EXCLUDE = [
 
 /** 有實際量測值才算數：空的列不該佔用保留區，也不該出現在圖面上。 */
 export function hasMeasurementRows(intent: DrawingIntent): boolean {
+  /* 真正會畫上去的列才算：要嘛是應用程式圖層（且對應種類有開、值有填），
+     要嘛是生圖模型繪製模式（由模型自己把值寫進圖裡）。 */
+  if (annotationOverlayActive(intent)) return annotationRows(intent).length > 0;
   return Object.entries(intent.measurements).some(([key, value]) => key.trim() && value.trim());
 }
 
@@ -152,8 +155,11 @@ export function reservedSheetClause(intent: DrawingIntent): string {
       `Annotation band: keep the band at ${describeRect(layout.annotation)} as blank white paper; the application renders the dimension values, tolerances, GD&T feature-control frames and part-number leaders into that band as an overlay layer after generation. Do not draw those annotations into the band, and do not draw them anywhere else either.`,
     );
   } else {
+    /* 這裡以前連「幾何」都禁止模型畫（尺寸線、引線、特徵框），可是沒有標註列時
+       應用程式圖層沒有任何東西可疊 —— 使用者勾了尺寸卻兩邊都沒人畫，圖上就完全沒有標註。
+       正確分工：幾何歸模型，文字歸應用程式。 */
     lines.push(
-      'Annotations: do not draw dimension values, tolerance notes, GD&T feature-control frames or part-number leaders; the application draws them itself.',
+      'Annotations: draw the annotation geometry yourself (extension lines, dimension lines with solid arrowheads, leader lines, feature-control frame boxes), but do not letter any value, name, datum letter or part number — the application adds the text afterwards as its own layer.',
     );
   }
   lines.push(
@@ -175,8 +181,11 @@ function annotationClauses(intent: DrawingIntent): string[] {
       ? `complete dimension geometry with extension lines, dimension lines, solid arrowheads and clearly rendered numeric values in ${UNIT_WORD[a.unit]} (${a.unit})`
       : `complete dimension geometry: extension lines and dimension lines with solid arrowheads; reserve clear gaps for application-rendered numeric values in ${UNIT_WORD[a.unit]} (${a.unit}), but do not draw the values`);
   }
-  if (a.tolerance) out.push('reserve clear tolerance annotation space next to critical dimensions; do not draw tolerance text or numbers');
-  if (a.gdt) out.push('GD&T feature control frames with datum references (flatness, concentricity, perpendicularity)');
+  /* 幾何一律交給生圖模型，文字一律交給應用程式圖層。以前容差與幾何公差只寫「留空間」、
+     「畫特徵框」卻沒說那個框要不要填字，模型就自己把公差與基準符號寫進去；
+     現在兩種模式都只准畫框、不許填字，文字由視圖模型定位後由應用程式寫上。 */
+  if (a.tolerance) out.push('reserve clear tolerance annotation space next to critical dimensions and draw the tolerance frame geometry; do not draw tolerance text or numbers');
+  if (a.gdt) out.push('draw the GD&T feature control frame boxes and their leader lines with datum references (flatness, concentricity, perpendicularity), but leave the compartments empty; do not write the symbols or datum letters');
   if (a.callouts) out.push('blank balloon callout geometry with straight leader lines terminating in a dot; do not draw balloon numbers');
   /* 標題欄與比例尺一律是應用程式疊上去的圖層：任何模式、任何開關都不交給模型畫，
      模型只負責把那塊留白。 */
@@ -256,6 +265,11 @@ export function buildPositivePrompt(intent: DrawingIntent): string {
   if (intent.notes.trim()) parts.push(`Additional requirements: ${intent.notes.trim()}`);
 
   parts.push(reservedSheetClause(intent));
+  /* 幾何歸模型、文字歸應用程式，這條分工要在提示詞最外層再說一次：
+     改寫後的提示詞、草稿摘要與各路徑拼接都可能淡掉這句，而它是「不要生字」的唯一保險。 */
+  parts.push(
+    'Division of work: draw only the geometry (outlines, hidden lines, centrelines, hatching, arrowheads, leader lines, frame boxes). The application renders every character afterwards, so leave the sheet completely free of lettering and never draw annotation values yourself.',
+  );
   parts.push('Sheet framing: single flat sheet, orthogonal to the viewer, no page curl.');
 
   return parts.join('\n');
@@ -268,7 +282,12 @@ export function buildNegativePrompt(intent: DrawingIntent): string {
      模型自己排的圖框只會和保留區打架，因此固定列入負面提示。 */
   const furnitureFree = ['title block', 'revision table', 'sheet number box', 'ruler graphic'];
   const textFree = intent.text.renderMode === 'image-model' ? [] : ['any text', 'letters', 'numbers', 'words', 'characters', 'labels', 'typography'];
-  return [...BASELINE_EXCLUDE, ...furnitureFree, ...textFree, ...intent.exclude.filter((s) => s.trim())].join(', ');
+  /* 標註幾何是我們要的，但「在圖上寫大小數字」不是 —— 生圖模型最常犯的錯就是把尺寸值、
+     公差與基準符號直接寫在物件上，所以即使應用程式繪製模式也要明文排除這些字樣。 */
+  const annotationLetteringFree = annotationOverlayActive(intent)
+    ? ['dimension numerals', 'tolerance text', 'datum lettering', 'balloon numbers', 'printed measurements']
+    : [];
+  return [...BASELINE_EXCLUDE, ...furnitureFree, ...textFree, ...annotationLetteringFree, ...intent.exclude.filter((s) => s.trim())].join(', ');
 }
 
 /** 局部重繪：只描述選區內要發生的變化，並鎖住其餘部分 */

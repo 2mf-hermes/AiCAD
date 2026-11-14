@@ -21,7 +21,7 @@ import {
 } from './types';
 
 interface ChatResponse {
-  choices?: { message?: { content?: string } }[];
+  choices?: { message?: { content?: string }; finish_reason?: string }[];
 }
 interface ImageResponse {
   data?: { b64_json?: string; url?: string }[];
@@ -138,6 +138,8 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
               ] : `Part description: ${input.subject}\n\nDraft brief:\n${input.draft}` },
             ],
             temperature: 0.2,
+            /* 已經送出上限就一併附上；沒有指定時沿用端點預設，行為與先前相同。 */
+            ...(input.maxOutputTokens ? { max_tokens: input.maxOutputTokens } : {}),
           },
           authHeaders(cfg, secret),
           cfg.timeoutSec * 1000,
@@ -145,6 +147,12 @@ export function createOpenAICompatibleAdapter(spec: Spec): ProviderAdapter {
         );
         const text = res.choices?.[0]?.message?.content?.trim();
         if (!text) throw new ProviderError('模型回應為空', spec.id);
+        /* 被長度上限截斷的輸出不能當成完整答案往上送 —— 截斷的 SVG 少了收尾標籤、
+           截斷的幾何描述少了後半句，下游只會做出殘缺的圖。讓呼叫端拿到明確訊號，
+           才能退回路徑或加大上限重試。 */
+        if (res.choices?.[0]?.finish_reason === 'length') {
+          throw new ProviderError('模型輸出達到長度上限被截斷', spec.id, undefined, undefined, 'invalid-response');
+        }
         return text;
       } catch (e) {
         throw wrap(e, spec.id);
