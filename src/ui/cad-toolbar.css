@@ -1,5 +1,5 @@
 /* ============================================================================
-   CAD 工具列（中間畫布上方）
+   CAD 工具列（中間畫布上方）— AutoCAD 式功能區
    ----------------------------------------------------------------------------
    這個檔案曾經是「主題違反者」：整條工具列用了不存在又給淺色 fallback 的
    變數（var(--surface,#fff) / var(--line,#d7dce2) / var(--ink,#20252b)），
@@ -10,29 +10,96 @@
      --ink     → --fg-primary   --muted → --fg-secondary
      --accent  → --accent（本來就存在，只是被 #315f87 蓋掉）
    圖面語言用的白（色塊、accent 上的字）維持原樣：那是「圖」不是「UI」。
-   版面（尺寸、gap、grid）一律不動 —— 工具列曾經「擠在一起」，不再惹它。
+
+   版面：上排頁籤／指令列（固定 34px），下排面板列（AutoCAD 的 ribbon panels）。
+   每個面板是直欄，面板內是圖示按鈕，面板底部是面板標題，面板之間用 1px 直線分隔。
    ========================================================================== */
 
 .cad-ribbon{position:relative;z-index:5;display:grid;border-bottom:1px solid var(--line-hairline);background:var(--bg-panel);box-shadow:var(--shadow-1)}
 .cad-ribbon button,.cad-ribbon input,.cad-ribbon select{font:inherit}
 .cad-ribbon button:focus-visible,.cad-ribbon input:focus-visible,.cad-ribbon select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .cad-ribbon button:disabled{cursor:not-allowed;opacity:.45}
-.cad-ribbon__primary,.cad-ribbon__secondary{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 12px}
-.cad-ribbon__primary{min-height:42px}.cad-ribbon__secondary{min-height:35px;padding-top:4px;padding-bottom:5px;border-top:1px solid color-mix(in srgb,var(--line-hairline) 70%,transparent);font-size:12px}
-.cad-ribbon__groups{display:flex;gap:5px}.cad-ribbon__group,.cad-ribbon__control{position:relative}.cad-ribbon__group-button,.cad-ribbon__toggle,.cad-ribbon__disclosure{height:30px;border:1px solid var(--line-strong);background:var(--bg-raised);color:var(--fg-primary);cursor:pointer}
-.cad-ribbon__group-button{display:flex;align-items:center;gap:7px;border-radius:7px;padding:0 9px;font-weight:700}.cad-ribbon__group-button[aria-expanded=true],.cad-ribbon__toggle[aria-pressed=true]{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
-.cad-ribbon__group-count{display:grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--bg-hover);color:var(--fg-secondary);font-size:10px}
-.cad-ribbon__menu,.cad-ribbon__popover{position:absolute;z-index:40;top:calc(100% + 5px);left:0;min-width:190px;max-height:min(360px,calc(100vh - 160px));overflow:auto;padding:6px;border:1px solid var(--line-strong);border-radius:9px;background:var(--bg-raised);box-shadow:var(--shadow-2)}
-.cad-ribbon__menu-item{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:32px;border:0;border-radius:5px;padding:5px 8px;background:transparent;text-align:left;cursor:pointer}.cad-ribbon__menu-item:hover,.cad-ribbon__menu-item[aria-current=true]{background:var(--bg-hover);color:var(--accent)}.cad-ribbon kbd{font-size:10px;color:var(--fg-secondary)}
-.cad-ribbon__active{display:flex;align-items:baseline;gap:6px;white-space:nowrap}.cad-ribbon__active span{color:var(--fg-secondary);font-size:11px}.cad-ribbon__active strong{font-size:13px}.cad-ribbon__spacer{flex:1}
-.cad-ribbon__command{display:flex;align-items:center;gap:6px;min-width:190px;color:var(--fg-secondary);font-size:11px}.cad-ribbon__command input{width:min(240px,22vw);height:28px;border:1px solid var(--line-strong);border-radius:6px;padding:0 8px;background:var(--bg-raised);color:var(--fg-primary)}
-.cad-ribbon__toggle{border-radius:6px 0 0 6px;padding:0 8px}.cad-ribbon__control>.cad-ribbon__toggle:only-child{border-radius:6px}.cad-ribbon__disclosure{width:26px;margin-left:-1px;border-radius:0 6px 6px 0}.cad-ribbon__check{display:flex;align-items:center;gap:8px;padding:6px 7px;border-radius:5px}.cad-ribbon__check:hover{background:var(--bg-hover)}.cad-ribbon__check input{accent-color:var(--accent)}
-.cad-ribbon__popover--layer{width:min(390px,calc(100vw - 40px));display:grid;gap:5px}.cad-ribbon__layer-head{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 6px}.cad-ribbon__layer-head button{border:0;border-radius:5px;padding:5px 8px;background:var(--accent);color:white;cursor:pointer}.cad-ribbon__layer{display:grid;grid-template-columns:minmax(90px,1fr) 28px 29px 29px 29px;gap:4px;align-items:center}.cad-ribbon__layer button{height:28px;border:1px solid var(--line-strong);border-radius:5px;background:var(--bg-raised);cursor:pointer}.cad-ribbon__layer button:disabled{opacity:.4;cursor:not-allowed}.cad-ribbon__layer-name{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cad-ribbon__layer-name[aria-current=true]{font-weight:700;color:var(--accent);border-color:var(--accent)}.cad-ribbon__layer input[type=color]{width:28px;height:28px;border:1px solid var(--line-strong);border-radius:5px;padding:2px;background:var(--bg-raised)}.cad-ribbon__hint{margin:3px;color:var(--fg-secondary);font-size:10px}.cad-ribbon__layer-rename{height:27px;border:1px solid var(--line-strong);border-radius:5px;padding:0 7px}
-.cad-ribbon__select,.cad-ribbon__number{display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--fg-secondary)}.cad-ribbon__select select,.cad-ribbon__number input{height:27px;border:1px solid var(--line-strong);border-radius:5px;background:var(--bg-raised);color:var(--fg-primary)}.cad-ribbon__number input{width:48px;padding:0 4px}
+
+/* ── 頁籤列 ─────────────────────────────────────────────────────────────── */
+.cad-ribbon__tabbar{display:flex;align-items:center;gap:var(--sp-3);min-width:0;min-height:34px;padding:0 var(--sp-3);border-bottom:1px solid var(--line-hairline)}
+.cad-ribbon__tabs{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
+.cad-ribbon__tab{position:relative;padding:0 var(--sp-2);line-height:33px;font-size:var(--fs-caption);color:var(--fg-tertiary);white-space:nowrap;cursor:default}
+.cad-ribbon__tab[aria-selected='true']{color:var(--fg-primary);font-weight:var(--fw-semibold)}
+/* 選中頁籤下方的 2px 底線：AutoCAD 標示目前頁籤的方式，比換底色安靜。 */
+.cad-ribbon__tab[aria-selected='true']::after{content:'';position:absolute;inset:auto 6px -1px 6px;height:2px;border-radius:2px 2px 0 0;background:var(--accent)}
+.cad-ribbon__active{display:none;align-items:baseline;gap:6px;white-space:nowrap;color:var(--fg-secondary);font-size:var(--fs-micro)}
+.cad-ribbon__active strong{color:var(--fg-primary);font-size:var(--fs-caption)}
+.cad-ribbon__collapse{display:grid;place-items:center;width:26px;height:22px;margin-left:auto;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--fg-secondary);cursor:pointer}
+.cad-ribbon__collapse:hover{border-color:var(--line-strong);background:var(--bg-hover);color:var(--fg-primary)}
+.cad-ribbon__command{display:flex;align-items:center;gap:6px;color:var(--fg-secondary);font-size:var(--fs-micro)}
+.cad-ribbon__command input{width:min(240px,22vw);height:24px;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:0 var(--sp-2);background:var(--bg-raised);color:var(--fg-primary);font-family:var(--font-num);font-size:var(--fs-caption)}
+.cad-ribbon__command input::placeholder{color:var(--fg-tertiary)}
+
+/* ── 面板列 ─────────────────────────────────────────────────────────────── */
+.cad-ribbon__panels{display:flex;align-items:stretch;min-width:0;overflow-x:auto;overflow-y:visible;scrollbar-width:thin}
+.cad-ribbon__panel{display:flex;flex-direction:column;gap:2px;flex:0 0 auto;padding:5px var(--sp-3) 0;border-right:1px solid var(--line-hairline)}
+.cad-ribbon__panel:last-child{border-right:0}
+.cad-ribbon__panel--grow{flex:1 1 auto;min-width:0}
+.cad-ribbon__panel-body{display:flex;flex:1 1 auto;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+/* 面板標題：AutoCAD 的 group label，貼在面板底部、永遠不換行。 */
+.cad-ribbon__panel-title{padding:1px 0 2px;text-align:center;font-size:var(--fs-micro);letter-spacing:var(--ls-micro);color:var(--fg-tertiary);white-space:nowrap;user-select:none}
+
+/* ── 圖示按鈕 ───────────────────────────────────────────────────────────── */
+.cad-ribbon__toolgrid{display:flex;align-items:stretch;gap:2px}
+.cad-ribbon__toolgrid--pair{gap:var(--sp-1)}
+.cad-ribbon__tool{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;width:46px;padding:4px 2px 3px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--fg-primary);font-size:var(--fs-micro);line-height:1.15;cursor:pointer;transition:background var(--dur-1) var(--ease-out),border-color var(--dur-1) var(--ease-out),color var(--dur-1) var(--ease-out)}
+.cad-ribbon__tool span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cad-ribbon__tool:hover{background:var(--bg-hover);border-color:var(--line-strong)}
+.cad-ribbon__tool[aria-pressed='true']{background:var(--accent-wash);border-color:var(--accent);color:var(--accent)}
+/* 大圖示（主要動作，例如尺寸）：圖示放大、不顯示文字，與 AutoCAD 的大型按鈕一致。 */
+.cad-ribbon__tool--large{width:52px;justify-content:center;padding:5px 2px}
+.cad-ribbon__tool--large span{display:none}
+.cad-ribbon__tool--large .cad-ribbon__icon{width:24px;height:24px}
+.cad-ribbon__icon{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.cad-ribbon__tool--large .cad-ribbon__icon{stroke-width:1.5}
+
+/* ── 面板內的小控件（圖層／鎖點／狀態） ─────────────────────────────────── */
+.cad-ribbon__control{position:relative;display:flex;align-items:stretch}
+.cad-ribbon__toggle,.cad-ribbon__disclosure{display:flex;align-items:center;gap:5px;height:28px;border:1px solid var(--line-strong);background:var(--bg-raised);color:var(--fg-primary);font-size:var(--fs-micro);cursor:pointer}
+.cad-ribbon__toggle{border-radius:var(--r-sm);padding:0 var(--sp-2);min-width:0}
+.cad-ribbon__control>.cad-ribbon__disclosure{margin-left:-1px;border-radius:0 var(--r-sm) var(--r-sm) 0;padding:0 4px;color:var(--fg-secondary)}
+.cad-ribbon__control>.cad-ribbon__toggle:not(:last-child){border-radius:var(--r-sm) 0 0 var(--r-sm);border-right-color:transparent}
+.cad-ribbon__toggle:hover,.cad-ribbon__disclosure:hover{background:var(--bg-hover);color:var(--fg-primary)}
+.cad-ribbon__toggle[aria-pressed='true'],.cad-ribbon__toggle[aria-expanded='true']{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
+.cad-ribbon__truncate{max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cad-ribbon__status{color:var(--fg-secondary);font-size:var(--fs-micro);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ── 彈出面板 ───────────────────────────────────────────────────────────── */
+.cad-ribbon__popover{position:absolute;z-index:40;top:calc(100% + 5px);left:0;min-width:190px;max-height:min(360px,calc(100vh - 160px));overflow:auto;padding:6px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--bg-raised);box-shadow:var(--shadow-2)}
+.cad-ribbon__check{display:flex;align-items:center;gap:var(--sp-2);padding:5px 7px;border-radius:var(--r-sm);font-size:var(--fs-caption);cursor:pointer}
+.cad-ribbon__check:hover{background:var(--bg-hover)}
+.cad-ribbon__check input{accent-color:var(--accent)}
+.cad-ribbon__popover--layer{width:min(390px,calc(100vw - 40px));display:grid;gap:5px}
+.cad-ribbon__layer-head{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 6px;font-size:var(--fs-caption)}
+.cad-ribbon__layer-head button{border:0;border-radius:var(--r-sm);padding:5px var(--sp-2);background:var(--accent);color:#fff;font-size:var(--fs-caption);cursor:pointer}
+.cad-ribbon__layer{display:grid;grid-template-columns:minmax(90px,1fr) 28px 29px 29px 29px;gap:4px;align-items:center}
+.cad-ribbon__layer button{height:26px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-raised);color:var(--fg-secondary);font-size:var(--fs-micro);cursor:pointer}
+.cad-ribbon__layer button:hover:not(:disabled){color:var(--accent);border-color:var(--accent)}
+.cad-ribbon__layer .cad-ribbon__layer-name{justify-self:stretch;padding:0 var(--sp-2);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-primary)}
+.cad-ribbon__layer .cad-ribbon__layer-name[aria-current='true']{border-color:var(--accent);color:var(--accent);font-weight:var(--fw-semibold)}
+.cad-ribbon__layer input[type='color']{width:28px;height:26px;padding:0;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-raised);cursor:pointer}
+.cad-ribbon__hint{margin:2px 3px 0;color:var(--fg-tertiary);font-size:var(--fs-micro)}
+.cad-ribbon__layer-rename{width:100%;height:26px;margin-top:3px;padding:0 var(--sp-2);border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-panel);color:var(--fg-primary);font-size:var(--fs-micro)}
+
+/* ── 性質列（選了需要參數的指令才出現） ─────────────────────────────────── */
+.cad-ribbon__context{display:flex;align-items:center;gap:var(--sp-2);min-width:0;overflow-x:auto;padding:5px var(--sp-3);border-top:1px solid color-mix(in srgb,var(--line-hairline) 70%,transparent);font-size:var(--fs-caption);scrollbar-width:thin}
+.cad-ribbon__context-label{padding:1px 7px;border-radius:var(--r-pill);background:var(--accent-wash);color:var(--accent);font-size:var(--fs-micro);font-weight:var(--fw-semibold);white-space:nowrap}
+.cad-ribbon__select,.cad-ribbon__number{display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--fg-secondary);font-size:var(--fs-caption)}
+.cad-ribbon__select select,.cad-ribbon__number input{height:26px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-raised);color:var(--fg-primary);font-size:var(--fs-caption)}
+.cad-ribbon__select select{padding:0 4px;max-width:190px}
+.cad-ribbon__number input{width:48px;padding:0 4px}
 /* 尺寸數值：先前沿用 48px 的共用寬度，被壓成幾乎看不見的細條，這裡單獨放大。 */
 .cad-ribbon__number--dim{gap:6px;color:var(--fg-primary)}
-.cad-ribbon__number--dim .cad-ribbon__dimension-value{width:132px;height:28px;padding:0 8px;border-color:var(--accent);font-variant-numeric:tabular-nums}
-.cad-ribbon__dimension-hint{white-space:nowrap;color:var(--fg-secondary);font-size:11px}
-.cad-ribbon__clear{height:27px;border:1px solid var(--line-strong);border-radius:5px;padding:0 9px;background:var(--bg-raised);color:var(--fg-secondary);cursor:pointer}
-.cad-ribbon__clear:hover{color:var(--accent);border-color:var(--accent)}.cad-ribbon__status{margin-left:auto;color:var(--fg-secondary);white-space:nowrap}
-@media(max-width:900px){.cad-ribbon__primary,.cad-ribbon__secondary{overflow-x:auto;scrollbar-width:thin}.cad-ribbon__active{display:none}.cad-ribbon__command{min-width:160px}.cad-ribbon__command input{width:150px}.cad-ribbon__menu,.cad-ribbon__popover{position:fixed;top:92px;left:12px;max-width:calc(100vw - 24px)}}
+.cad-ribbon__number--dim .cad-ribbon__dimension-value{width:132px;height:27px;padding:0 var(--sp-2);border-color:var(--accent);font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.cad-ribbon__dimension-hint{white-space:nowrap;color:var(--fg-secondary);font-size:var(--fs-micro)}
+.cad-ribbon__clear{height:27px;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:0 9px;background:var(--bg-raised);color:var(--fg-secondary);font-size:var(--fs-caption);cursor:pointer}
+.cad-ribbon__clear:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ── 窄視窗 ─────────────────────────────────────────────────────────────── */
+@media(max-width:1100px){.cad-ribbon__active{display:flex}.cad-ribbon__tabs{display:none}}
+@media(max-width:900px){.cad-ribbon__command input{width:130px}.cad-ribbon__command span{display:none}.cad-ribbon__popover{position:fixed;top:92px;left:12px;max-width:calc(100vw - 24px)}}

@@ -190,6 +190,8 @@ export const zhHant = {
     resolvedPrompt: '實際提示語',
     resolvedPromptHint: '可全選複製，用於重現或除錯',
     draftTitle: '草稿與精煉提示詞',
+    draftWorking: '文字模型正在精煉提示詞並擬定草稿，完成後會立即顯示在這裡。',
+    draftSkipped: '目前沒有可用的文字模型（精煉引擎設為「無」或未填入模型），這一輪直接由生圖模型出圖，因此沒有草稿。請到「精煉引擎」選擇文字模型後再產圖。',
     draftEmpty: '按下產圖後，文字模型會先精煉提示詞並畫一張線稿草稿，內容會顯示在這裡。',
     draftAlt: '文字模型產生的線稿草稿',
     draftNoSketch: '這一輪沒有產生線稿草稿，只精煉了提示詞。',

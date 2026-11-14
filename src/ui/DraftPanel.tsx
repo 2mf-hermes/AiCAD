@@ -22,9 +22,13 @@ interface Props {
   prompt: string;
   /** 藍圖（深底白線）樣式。 */
   dark: boolean;
+  /** 正在跑文字模型階段（精煉或擬稿）。避免把「還在跑」顯示成「沒有草稿」。 */
+  busy?: boolean;
+  /** 'skipped'：這一輪沒有可用文字模型，草稿階段整段被跳過。 */
+  stage?: 'idle' | 'model' | 'skipped';
 }
 
-export function DraftPanel({ draft, prompt, dark }: Props) {
+export function DraftPanel({ draft, prompt, dark, busy = false, stage = 'idle' }: Props) {
   const t = useT();
   const href = useMemo(() => {
     const svg = draft?.svg?.trim();
@@ -35,7 +39,9 @@ export function DraftPanel({ draft, prompt, dark }: Props) {
   return (
     <Section variant="block" title={t.right.draftTitle}>
       {empty ? (
-        <p className="empty-note">{t.right.draftEmpty}</p>
+        <p className="empty-note">
+          {busy ? t.right.draftWorking : stage === 'skipped' ? t.right.draftSkipped : t.right.draftEmpty}
+        </p>
       ) : (
         <div className="draftpanel">
           {href ? (

@@ -21,6 +21,8 @@ export interface SheetSvgInput {
   /** 草稿向量（可選）。有它就能匯出真正的 CAD 幾何。 */
   draftSvg?: string;
   labels?: readonly DrawingTextLabel[];
+  /** 尺寸數值文字圖層（座標 0..1）；不給就沒有這一層。 */
+  dimensionLabels?: readonly SheetDimensionLabel[];
   furniture?: readonly FurniturePrimitive[];
   /** 圖面分區；有它且應用程式疊加模式下才決定標註圖層落在哪裡。 */
   layout?: SheetLayout;
@@ -45,6 +47,38 @@ export function escapeXml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/** 圖面幾何（0..1 座標）→ 圖面單位。與 DrawingCanvas 的 *1000 相同，預覽與匯出才會重疊。 */
+export interface SheetDimensionLabel {
+  x: number;
+  y: number;
+  value: string;
+  rotate?: number;
+}
+
+/**
+ * 尺寸數值的文字圖層。
+ * 尺寸幾何由 cad 的 dimensionGeometry() 算出，這裡只負責「把數值畫成文字」：
+ * 少了這一層，畫布上看得到數值、匯出檔裡卻沒有 —— 正是「尺寸數值沒有顯示」的成因。
+ */
+export function dimensionLabelsSvg(
+  labels: readonly SheetDimensionLabel[],
+  viewHeight: number,
+  ink: string,
+  paper: string,
+  fontSize = 18,
+): string {
+  if (!labels.length) return '';
+  const sy = viewHeight / 1000;
+  return labels
+    .map((label) => {
+      const x = number(label.x * SHEET_VIEW_WIDTH);
+      const y = number(label.y * sy);
+      const transform = label.rotate ? ` transform="rotate(${number(-label.rotate)} ${x} ${y})"` : '';
+      return `<text data-layer="DIMENSION" x="${x}" y="${y}" font-size="${number(fontSize)}" font-weight="600" text-anchor="middle" fill="${ink}" stroke="${paper}" stroke-width="${number(fontSize * 0.1)}" stroke-linejoin="round" paint-order="stroke"${transform}>${escapeXml(label.value)}</text>`;
+    })
+    .join('');
 }
 
 /** 把圖框圖元轉成 SVG 片段。`data-layer` 供 DXF 匯出分層用。 */
@@ -154,6 +188,7 @@ export function buildSheetSvg(input: SheetSvgInput): string {
     const primitives = annotationPrimitives({ ...input.annotation, layout: band });
     if (primitives.length) parts.push(annotationSvg(primitives, ink, paper));
   }
+  if (input.dimensionLabels?.length) parts.push(dimensionLabelsSvg(input.dimensionLabels, height, ink, paper));
   if (input.furniture?.length) parts.push(furnitureSvg(input.furniture, ink, paper));
   parts.push('</svg>');
   return parts.join('');

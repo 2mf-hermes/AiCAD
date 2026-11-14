@@ -640,7 +640,7 @@ export function sheetToDxf(input: CadExportInput): CadExportResult {
       for (const arrow of geometry.arrows) for (const part of arrowLines(arrow)) segment(part.start, part.end);
       shapes.push({
         kind: 'TEXT',
-        layer: 'TEXT',
+        layer: layerName,
         points: [toPoint({ x: geometry.text.x, y: geometry.text.y })],
         closed: false,
         radius: 0,

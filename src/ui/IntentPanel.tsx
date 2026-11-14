@@ -176,9 +176,17 @@ export function IntentPanel({ intent, onChange }: Props) {
                   <button
                     type="button"
                     className="btn btn--ghost btn--sm btn--now"
+                    aria-label={t.intent.dateToday}
+                    title={t.intent.dateToday}
                     onClick={() => patchText({ date: new Date().toISOString().slice(0, 10) })}
                   >
-                    {t.intent.dateToday}
+                    {/* 圖示按鈕：文字版會比要填的日期還寬。日曆圖示沿用 24×24 viewBox。 */}
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                      <path d="M3.5 9.6h17" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                      <path d="M8 3.2v3.4M16 3.2v3.4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      <circle cx="12" cy="15" r="1.5" fill="currentColor" />
+                    </svg>
                   </button>
                 </div>
               </Field>

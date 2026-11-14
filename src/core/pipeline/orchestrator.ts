@@ -30,13 +30,16 @@ import type { Artboard, DrawingIntent, DrawingTextLabel, MaskRegion } from '../t
 import { createSafeId } from '../projectSafety';
 import { shouldOverlayLabels } from '../textOverlay';
 import { generationKey, type PreparedGeneration } from './draftCache';
+import { locateAnnotations } from './annotationPlacement';
+import { annotationBandHeight } from '../annotationOverlay';
+import { sheetLayout } from '../sheetLayout';
 
 export interface RunProgress {
   stage: 'drafting' | 'refining' | 'drawing' | 'compositing';
   note: string;
 }
 
-interface RunDeps {
+export interface RunDeps {
   settings: Settings;
   onProgress: (progress: RunProgress) => void;
   signal: AbortSignal;
@@ -295,8 +298,10 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
   const draftView = reused ? reused.draft?.view : translated?.view;
   const preparedDraft = draft ? { ...draft, finalPrompt: finalPrompt ?? undefined, view: draftView } : null;
   deps.signal.throwIfAborted();
-  // Publish before image generation: errors/timeouts must not lose successful text work.
-  if (resolved.fromModel) deps.onPrepared?.({ key, draft: preparedDraft, basePrompt });
+  /* Publish before image generation: errors/timeouts must not lose successful text work.
+     精煉失敗（fromModel=false）但草稿畫得出來時也要發佈 —— 草稿本身就是文字模型的成果，
+     不發佈的話右側草稿區永遠空白，使用者只看到「沒草稿就直接生圖」。 */
+  deps.onPrepared?.({ key, draft: preparedDraft, basePrompt, textModelUsed: resolved.fromModel || Boolean(draft) });
   /* 翻譯成功就用它；失敗則退回「骨架＋草稿幾何摘要」，資訊較少但仍可生圖。
      兩條路都只是提示詞；版面靠下面單獨附上的草稿檢視圖表達。 */
   const textualPrompt = draft ? mergeDraftIntoPrompt(basePrompt, draft, Boolean(draftView)) : basePrompt;
@@ -345,7 +350,23 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
     (candidate, attempt) => deps.onProgress({ stage: 'drawing', note: `${candidate.name} 正在繪製圖面${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}` }),
   );
   deps.signal.throwIfAborted();
-  return artboard(result, intent, prompt, config, draft?.labels, draft?.svg);
+  /* 圖生出來了，最後一步才問視圖模型「每一行標註該擺哪」。
+     這一步刻意放在生圖之後：模型要看的是真實成品的版面，不是草稿。
+     定位失敗不影響出圖，只是退回固定標註帶。 */
+  const placements = await locateAnnotations(
+    intent,
+    sheetLayout({
+      titleBlock: intent.annotation.titleBlock,
+      measurements: intent.annotation.dimensions,
+      scaleBar: intent.annotation.scaleBar,
+      annotation: annotationBandHeight(intent),
+    }),
+    { mimeType: 'image/png', base64: result.base64 },
+    deps,
+  );
+  const art = artboard(result, intent, prompt, config, draft?.labels, draft?.svg);
+  /* 位置只在「應用程式精確疊加」模式下有意義，也只有它會被畫進圖層。 */
+  return placements.length > 0 ? { ...art, annotationPlacements: placements } : art;
 }
 
 export async function inpaint(source: Artboard, masks: MaskRegion[], deps: RunDeps): Promise<Artboard> {

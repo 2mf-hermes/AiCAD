@@ -183,6 +183,8 @@ export const zhHans: Dict = {
     resolvedPrompt: '实际提示词',
     resolvedPromptHint: '可全选复制，用于复现或排错',
     draftTitle: '草稿与精炼提示词',
+    draftWorking: '文字模型正在精炼提示词并拟定草稿，完成后会立即显示在这里。',
+    draftSkipped: '当前没有可用的文字模型（精炼引擎设为“无”或未填入模型），这一轮直接由生图模型出图，因此没有草稿。请到“精炼引擎”选择文字模型后再产图。',
     draftEmpty: '按下产图后，文字模型会先精炼提示词并画一张线稿草稿，内容会显示在这里。',
     draftAlt: '文字模型产生的线稿草稿',
     draftNoSketch: '这一轮没有产生线稿草稿，只精炼了提示词。',

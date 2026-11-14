@@ -117,12 +117,14 @@ function titleBlockPrimitives(
   const titleSize = scale * 1.9;
   const titleH = Math.min(h * 0.34, titleSize * 1.9);
   const title = input.text.title.trim();
+  /* 右側留白：文字與格線之間要有一段呼吸空間，否則內容會貼死在標題欄邊緣。 */
+  const padX = scale * 0.7;
   out.push({ kind: 'line', x1: x, y1: y + titleH, x2: x + w, y2: y + titleH, role: 'rule' });
   out.push({
     kind: 'text',
-    x: x + scale * 0.7,
+    x: x + padX,
     y: y + titleH * 0.5 + titleSize * 0.36,
-    text: clampText(title, widthBudget(w - scale * 1.4, titleSize)),
+    text: clampText(title, widthBudget(w - padX * 2, titleSize)),
     size: titleSize,
     anchor: 'start',
     weight: 'bold',
@@ -155,9 +157,9 @@ function titleBlockPrimitives(
     out.push({ kind: 'line', x1: x + labelW, y1: top, x2: x + labelW, y2: top + rowH, role: 'rule' });
     out.push({
       kind: 'text',
-      x: x + scale * 0.5,
+      x: x + padX,
       y: top + rowH * 0.5 + rowSize * 0.36,
-      text: clampText(key, widthBudget(labelW - scale, rowSize)),
+      text: clampText(key, widthBudget(labelW - padX - scale * 0.3, rowSize)),
       size: rowSize,
       anchor: 'start',
       weight: 'normal',
@@ -165,9 +167,10 @@ function titleBlockPrimitives(
     });
     out.push({
       kind: 'text',
-      x: x + labelW + scale * 0.5,
+      x: x + labelW + scale * 0.4,
       y: top + rowH * 0.5 + rowSize * 0.36,
-      text: clampText(value, widthBudget(w - labelW - scale, rowSize)),
+      /* 數值欄右側也要留 padX：少算這段，最右邊的字會直接壓在標題欄邊線上。 */
+      text: clampText(value, widthBudget(w - labelW - padX - scale * 0.4, rowSize)),
       size: rowSize,
       anchor: 'start',
       weight: 'bold',

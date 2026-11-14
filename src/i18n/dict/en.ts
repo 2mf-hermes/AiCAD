@@ -185,6 +185,8 @@ export const en: Dict = {
     resolvedPrompt: 'Resolved prompt',
     resolvedPromptHint: 'Select all to copy — useful for reproducing or debugging',
     draftTitle: 'Draft & refined prompt',
+    draftWorking: 'The text model is refining the prompt and sketching the draft; it appears here as soon as it is ready.',
+    draftSkipped: 'No text model is available (the refine engine is set to none or has no model), so this round went straight to the image model and has no draft. Pick a text model under the refine engine and generate again.',
     draftEmpty: 'After you press generate, the text model refines the prompt and sketches a line draft; it appears here.',
     draftAlt: 'Line draft produced by the text model',
     draftNoSketch: 'This run refined the prompt but produced no line draft.',

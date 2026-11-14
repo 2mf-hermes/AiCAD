@@ -6,6 +6,8 @@ export interface PreparedGeneration {
   key: string;
   draft: DraftSvg | null;
   basePrompt: string;
+  /** 這次文字階段是否真的跑過模型（精煉或擬稿）。false 代表沒有可用文字模型，整段被跳過。 */
+  textModelUsed?: boolean;
 }
 
 /** Include reference contents, not just filenames, to prevent stale draft reuse. */

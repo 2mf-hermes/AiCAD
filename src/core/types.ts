@@ -4,6 +4,8 @@
    這一層不依賴 React、不依賴任何 provider SDK，只描述「圖面」這件事。
    ========================================================================== */
 
+import type { AnnotationPlacement } from './annotationOverlay';
+
 /** 圖面類型 —— 決定提示語骨架與預設標註慣例 */
 export type DrawingKind =
   | 'mechanical-part'   // 機械零件（三視圖 / 剖視）
@@ -127,6 +129,11 @@ export interface Artboard {
   textLabels?: DrawingTextLabel[];
   /** 草稿向量（選填，舊檔沒有此欄位）。有它才有真正的幾何可匯出成 CAD 檔。 */
   draftSvg?: string;
+  /**
+   * 視圖模型判讀出來的標註位置（選填，舊檔沒有此欄位）。
+   * 只有「應用程式精確疊加」模式會產生與使用；沒有它就一直用固定標註帶。
+   */
+  annotationPlacements?: AnnotationPlacement[];
 }
 
 /** 顯示順序的單一來源。標籤文字改由 i18n 字典提供（t.kind / t.lineStyle），

@@ -15,10 +15,12 @@ import {
   type Settings,
 } from './core/settings';
 import { createDefaultIntent, type Artboard, type DrawingIntent, type MaskRegion } from './core/types';
-import { createDefaultCadWorkspace } from './core/cad';
+import { createDefaultCadWorkspace, type CadDimensionEntity } from './core/cad';
+import { dimensionGeometry } from './core/dimension';
 import { createSafeId } from './core/projectSafety';
 import { shouldOverlayLabels } from './core/textOverlay';
 import { annotationBandHeight, annotationOverlayActive, annotationPrimitives } from './core/annotationOverlay';
+import { annotationPositionsFor } from './core/annotationPlacementMap';
 import { sheetLayout } from './core/sheetLayout';
 import { sheetFurniture, sheetViewHeight } from './core/sheetFurniture';
 import { buildSheetSvg } from './core/sheetSvg';
@@ -204,6 +206,9 @@ function Workspace({
   /* 右欄草稿區塊：文字模型這一輪畫出的線稿與精煉後提示詞。 */
   const [draftPreview, setDraftPreview] = useState<DraftSvg | null>(null);
   const [draftPrompt, setDraftPrompt] = useState('');
+  /* 這一輪文字階段到底跑了什麼：'model' 有真跑模型、'skipped' 沒有可用文字模型被跳過。
+     使用者要能看到「為什麼沒草稿」，否則只會覺得程式直接跳去生圖。 */
+  const [draftStage, setDraftStage] = useState<'idle' | 'model' | 'skipped'>('idle');
   /* 第二次生圖前的「沿用或重新精煉」提示。 */
   const [reuseAskOpen, setReuseAskOpen] = useState(false);
   const retryKey = useMemo(() => generationKey(intent, settings.canvas), [intent, settings.canvas.width, settings.canvas.height]);
@@ -455,6 +460,12 @@ function Workspace({
       if (task === 'generate') {
         setGenerationFailure(null);
         if (!reused) draftCacheRef.current.forget();
+        /* 新的一輪：清掉上一輪的草稿顯示，否則使用者會以為這次的草稿是舊的。 */
+        if (!reused) {
+          setDraftPreview(null);
+          setDraftPrompt('');
+          setDraftStage('idle');
+        }
       }
       const ctrl = new AbortController();
       abortRef.current = ctrl;
@@ -481,6 +492,7 @@ function Workspace({
                不能只存在快取裡等到失敗要重用時才被想起。 */
             setDraftPreview(prepared.draft);
             setDraftPrompt(prepared.basePrompt);
+            setDraftStage(prepared.textModelUsed ? 'model' : 'skipped');
           }
         },
         onProgress: (progress: RunProgress) =>
@@ -564,10 +576,27 @@ function Workspace({
       layout,
       /* 預覽用的標註圖元與匯出共用同一個函式；生圖模型繪製模式不給，避免同一標註畫兩次。 */
       annotations: annotationOverlayActive(current.intent)
-        ? annotationPrimitives({ intent: current.intent, layout, viewHeight })
+        ? annotationPrimitives({
+            intent: current.intent,
+            layout,
+            viewHeight,
+            /* 視圖模型判讀的位置；沒有就退回固定標註帶。 */
+            placements: annotationPositionsFor(current, layout, viewHeight),
+          })
         : [],
     };
   }, [current, t]);
+
+  /* 尺寸數值的文字圖層：畫布只畫得出一張圖，匯出（PNG／SVG／DXF）要走同一份數值。
+     由 dimensionGeometry() 算出數值與位置，這裡只挑出「有字」的尺寸。 */
+  const dimensionLabels = useMemo(() => {
+    const source = current?.intent;
+    if (!source) return [];
+    return cadWorkspace.entities
+      .filter((entity): entity is CadDimensionEntity => entity.kind === 'dimension')
+      .map((entity) => dimensionGeometry(entity, cadWorkspace.entities).text)
+      .filter((text) => text.value.trim().length > 0);
+  }, [cadWorkspace.entities, current]);
 
   /** 匯出用：底圖、草稿向量、文字標示、圖框合成一張自足的 SVG。 */
   const composeSheet = useCallback(
@@ -583,12 +612,21 @@ function Workspace({
         layout: sheet.layout,
         /* 應用程式精確疊加模式：生圖完成後由程式把尺寸／公差／幾何公差／引線疊回去。
            生圖模型繪製模式交給模型自己畫，這裡整組不給，避免同一標註出現兩次。 */
-        annotation: annotationOverlayActive(current.intent) ? { intent: current.intent, viewHeight: sheet.viewHeight } : undefined,
+        annotation: annotationOverlayActive(current.intent)
+          ? {
+              intent: current.intent,
+              viewHeight: sheet.viewHeight,
+              /* 視圖模型看過成品後回報的位置；沒有就退回固定標註帶。 */
+              placements: annotationPositionsFor(current, sheet.layout, sheet.viewHeight),
+            }
+          : undefined,
+        /* 尺寸數值的文字圖層：幾何與畫布共用 dimensionGeometry()，數值才不會「畫布有、匯出沒有」。 */
+        dimensionLabels,
         viewHeight: sheet.viewHeight,
         dark: current.intent.lineStyle === 'blueprint',
       });
     },
-    [current, sheet],
+    [current, dimensionLabels, sheet],
   );
 
   const exportPng = useCallback(async () => {
@@ -860,6 +898,8 @@ function Workspace({
               draft={draftPreview}
               prompt={draftPrompt}
               dark={current?.intent.lineStyle === 'blueprint'}
+              busy={run.kind === 'busy' && (run.progress.stage === 'refining' || run.progress.stage === 'drafting')}
+              stage={draftStage}
             />
 
             <Section variant="block" title={t.right.masks} aside={<span className="field__hint num">{masks.length}</span>}>

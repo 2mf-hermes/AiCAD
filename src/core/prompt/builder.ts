@@ -159,6 +159,11 @@ export function reservedSheetClause(intent: DrawingIntent): string {
   lines.push(
     'Overlap guard: nothing may be drawn on top of another element — dimension geometry must sit clear of the geometry it measures and no annotation may cover a view.',
   );
+  /* 使用者的要求是「不要讓生圖模型生字」：模型畫幾何，文字一律由應用程式的文字圖層事後補上。
+     這樣就不會再出現模型把字寫成亂碼、或把標註名稱與數值畫在物件上的情況。 */
+  lines.push(
+    'Lettering: the application adds every annotation label and numeric value afterwards as its own text layer, positioned by a vision pass over your finished drawing. Do not letter annotation names, dimension values, tolerance text, datum letters or part numbers anywhere on the sheet — draw the geometry and leave the lettering to the application.',
+  );
   return lines.join(' ');
 }
 

@@ -281,6 +281,8 @@
 }
 .cad-entity { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .cad-entity text { stroke: none; font: 20px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cad-entity .cad-dim__text { fill: currentColor; paint-order: stroke; stroke: var(--sheet-paper, #ffffff); stroke-width: 0.6px; font: 600 18px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.cad-entity .cad-dim__extension { stroke-width: 1; opacity: .75; vector-effect: non-scaling-stroke; }
 .cad-entity--selected { filter: drop-shadow(0 0 3px var(--accent)); stroke-width: 3; }
 .cad-entity--draft { opacity: .75; stroke-dasharray: 7 5; }
 /* 圖塊名稱標籤：建立圖塊後顯示在成員物件中心上方，純標示、不攔截指標。 */
@@ -735,6 +737,30 @@
 .intent-subblock .dimrow {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 26px;
   min-width: 0;
+  /* 數值輸入框多一點左內距：與圖框內文字的左留白對齊，看起來才不會貼邊。 */
+  column-gap: var(--sp-2);
+}
+/* 日期列只有「日期控制項 + 今天按鈕」兩欄；這條一定要排在 .intent-subblock .dimrow 之後，
+   否則三欄的預設會蓋回去，日期框被壓成 88px、今天按鈕卻吃掉其餘寬度。 */
+.intent-subblock .dimrow--date {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-1);
+}
+/* today 按鈕改成純圖示：寬度只配合圖示，不再壓縮日期輸入框。 */
+.dimrow--date .btn--now {
+  width: 27px;
+  height: 27px;
+  min-width: 27px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+}
+.dimrow--date .btn--now svg {
+  width: 15px;
+  height: 15px;
+  display: block;
 }
 /* 只有一顆按鈕的列（新增／清除）不要留下三欄的空位。 */
 .intent-subblock .dimrow--actions {
