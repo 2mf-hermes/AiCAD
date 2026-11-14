@@ -182,7 +182,12 @@ export const ja: Dict = {
     engine: 'エンジン',
     model: 'モデル',
     resolvedPrompt: '実際のプロンプト',
-    resolvedPromptHint: '全選択してコピーできます（再現・原因調査用）',
+    resolvedPromptHint: '全選択してコピーできます（再現・原因調査用）',
+    draftTitle: '下書きと精製プロンプト',
+    draftEmpty: '生成を押すと、テキストモデルがプロンプトを精製して線画の下書きを作ります。ここに表示されます。',
+    draftAlt: 'テキストモデルが作成した線画の下書き',
+    draftNoSketch: 'この実行ではプロンプトの精製のみで、線画の下書きは作成されませんでした。',
+    draftPromptHint: '下書きの幾何を含め、画像モデルへ最後に送られたプロンプトです。コピーして確認できます。',
   },
 
   generationRetry: {

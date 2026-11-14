@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultIntent } from '../types';
+import { annotationBandHeight } from '../annotationOverlay';
+import { sheetLayout } from '../sheetLayout';
 import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt, viewDirective } from './builder';
 
 describe('technical drawing prompt text safeguards', () => {
@@ -108,5 +110,37 @@ describe('technical drawing prompt text safeguards', () => {
     const directive = viewDirective(stated);
     expect(directive).toContain('render only the viewpoints that the request itself states');
     expect(directive).not.toContain('draw exactly six orthographic views');
+  });
+
+  /* 「應用程式精確疊加」模式下，標註帶的位置必須真的送進提示詞：留白區與程式疊加區是同一條帶，
+     否則模型把標註畫在圖上、程式又疊一次，同一標註會出現兩份。 */
+  it('reserves the annotation band and places it directly above the footer', () => {
+    const intent = createDefaultIntent();
+    intent.text.renderMode = 'application';
+    intent.measurements = { '\u5916\u5f91': '\u00d8120', '\u5b54\u8ddd': '85' };
+    const prompt = buildPositivePrompt(intent);
+    expect(prompt).toContain('Annotation band: keep the band at');
+
+    const layout = sheetLayout({
+      titleBlock: intent.annotation.titleBlock,
+      measurements: true,
+      scaleBar: intent.annotation.scaleBar,
+      annotation: annotationBandHeight(intent),
+    });
+    expect(layout.annotation).not.toBeNull();
+    const band = layout.annotation!;
+    const footer = layout.footer!;
+    /* 帶的上緣要剛好貼著頁尾上緣，下緣落在頁尾裡就是疊錯位置。 */
+    expect(band.y + band.h).toBeCloseTo(footer.y, 6);
+    expect(layout.drawing.y + layout.drawing.h).toBeLessThanOrEqual(band.y + 1e-9);
+  });
+
+  it('keeps the band out of image-model mode, where the model letters the drawing itself', () => {
+    const intent = createDefaultIntent();
+    intent.text.renderMode = 'image-model';
+    intent.measurements = { '\u5916\u5f91': '\u00d8120' };
+    expect(annotationBandHeight(intent)).toBe(0);
+    const prompt = buildPositivePrompt(intent);
+    expect(prompt).not.toContain('Annotation band: keep the band at');
   });
 });

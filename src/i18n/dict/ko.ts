@@ -182,7 +182,12 @@ export const ko: Dict = {
     engine: '엔진',
     model: '모델',
     resolvedPrompt: '실제 프롬프트',
-    resolvedPromptHint: '전체 선택해 복사할 수 있습니다(재현 및 문제 확인용)',
+    resolvedPromptHint: '전체 선택해 복사할 수 있습니다(재현 및 문제 확인용)',
+    draftTitle: '초안 및 정제 프롬프트',
+    draftEmpty: '생성을 누르면 텍스트 모델이 프롬프트를 정제하고 선화 초안을 그립니다. 여기에 표시됩니다.',
+    draftAlt: '텍스트 모델이 만든 선화 초안',
+    draftNoSketch: '이번 실행에서는 프롬프트만 정제되었고 선화 초안은 생성되지 않았습니다.',
+    draftPromptHint: '초안 형상을 포함해 이미지 모델로 마지막에 전송된 프롬프트입니다. 복사해 확인하세요.',
   },
 
   generationRetry: {

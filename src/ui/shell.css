@@ -512,6 +512,22 @@
   font-size: var(--fs-caption);
   min-width: 0;
 }
+/* 日期列：輸入框吃掉所有剩餘寬度，「今天」只佔內容寬度。
+   日期輸入框在 Chromium 內含日曆圖示與 yyyy/mm/dd 提示，太窄會直接被截掉。 */
+.dimrow--date {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+.dimrow--date .input {
+  /* 日期控制項的內部最小寬度不受 min-width: 0 約束，這裡直接給它整條軌道。 */
+  width: 100%;
+  min-width: 132px;
+}
+.btn--now {
+  /* 「今天」是輔助動作，不該比要填的日期還寬。 */
+  flex: 0 0 auto;
+  padding-inline: var(--sp-2);
+  white-space: nowrap;
+}
 
 /* ---- 遮罩清單 ----------------------------------------------------------- */
 .masklist {
@@ -731,4 +747,35 @@
   min-width: 0;
   box-sizing: border-box;
   text-overflow: ellipsis;
+}
+
+/* ---- 右欄：草稿區塊 ---- */
+.draftpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.draftpanel__preview {
+  /* 草稿是白底線稿；固定高度 + contain，避免不同長寬比的草稿把右欄撐爆。 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 168px;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  background: #ffffff;
+  overflow: hidden;
+}
+.draftpanel__preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.draftpanel__preview--dark {
+  /* 藍圖線稿是深底白線，墊成白底會整張變空白。 */
+  background: var(--sheet-paper, #0d1b2a);
+  border-color: color-mix(in srgb, var(--sheet-paper, #0d1b2a) 70%, var(--line));
 }

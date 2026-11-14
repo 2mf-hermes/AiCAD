@@ -1,5 +1,5 @@
 /* Generation pipeline with finite priority fallback. */
-import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt, sheetOverlayGuard } from '../prompt/builder';
+import { buildInpaintPrompt, buildNegativePrompt, buildPositivePrompt, reservedSheetClause, sheetOverlayGuard } from '../prompt/builder';
 import {
   buildDraftPromptRequest,
   buildDraftPromptSystemPrompt,
@@ -305,7 +305,7 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
   /* 改寫後的提示詞可能把「留白給圖框」那句吃掉，所以圖框疊加與不留文字兩道保險
      都要接在最後，最終送出去的提示詞一定帶得到。 */
   const prompt = finalPrompt
-    ? [finalPrompt, sheetOverlayGuard(intent), guard].filter(Boolean).join('\n\n')
+    ? [finalPrompt, reservedSheetClause(intent), sheetOverlayGuard(intent), guard].filter(Boolean).join('\n\n')
     : textualPrompt;
   const configs = preferredFirst(deps.settings.providers, deps.settings.activeImageProvider);
   const { width, height } = deps.settings.canvas;

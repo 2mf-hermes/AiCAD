@@ -8,7 +8,9 @@
    ========================================================================== */
 
 import { LABEL_FONT_STACK, placeLabels } from './textOverlay';
+import { annotationBandHeight, annotationPrimitives, annotationSvg } from './annotationOverlay';
 import { SHEET_VIEW_WIDTH, sheetPaper, type FurniturePrimitive } from './sheetFurniture';
+import { sheetLayout, type SheetLayout } from './sheetLayout';
 import type { DrawingTextLabel } from './types';
 
 export interface SheetSvgInput {
@@ -20,11 +22,17 @@ export interface SheetSvgInput {
   draftSvg?: string;
   labels?: readonly DrawingTextLabel[];
   furniture?: readonly FurniturePrimitive[];
+  /** 圖面分區；有它且應用程式疊加模式下才決定標註圖層落在哪裡。 */
+  layout?: SheetLayout;
+  /** 標註圖層（尺寸／公差／幾何公差／零件編號引線）的開關與來源。 */
+  annotation?: Omit<AnnotationOverlaySource, 'layout'>;
   viewHeight: number;
   dark: boolean;
   /** 圖框文字顏色反轉（藍圖模式） */
   background?: string;
 }
+
+type AnnotationOverlaySource = Parameters<typeof annotationPrimitives>[0];
 
 export const SHEET_INK = { light: '#12181f', dark: '#eef4ff' } as const;
 
@@ -123,6 +131,28 @@ export function buildSheetSvg(input: SheetSvgInput): string {
   /* 標示用紙色描邊（halo）墊底：即使壓到線稿也讀得出來，這正是使用者抱怨「文字被圖面吃掉」的解法。 */
   if (input.labels?.length) {
     parts.push(labelsSvg(input.labels, input.width, input.height, height, ink, paper));
+  }
+  /* 標註圖層壓在圖框內容「之前」：圖框線與標題欄外框一定要蓋在標註帶邊界上，
+     否則標註帶會把自己的邊框吃掉。 */
+  if (input.annotation && input.layout) {
+    /* 版面若沒帶標註帶高度（例如舊呼叫端只傳 titleBlock／scaleBar），這裡自己補算一次：
+       否則畫面明明要疊標註，匯出卻是一條空陣列 —— 預覽有、存檔沒有，正是使用者最難查的那種錯。 */
+    let band: SheetLayout = input.layout;
+    const bandHeight = annotationBandHeight(input.annotation.intent);
+    if (!band.annotation && bandHeight > 0) {
+      band = {
+        ...band,
+        annotation:
+          sheetLayout({
+            titleBlock: input.annotation.intent.annotation.titleBlock,
+            measurements: band.measurements !== null,
+            scaleBar: input.annotation.intent.annotation.scaleBar,
+            annotation: bandHeight,
+          }).annotation,
+      };
+    }
+    const primitives = annotationPrimitives({ ...input.annotation, layout: band });
+    if (primitives.length) parts.push(annotationSvg(primitives, ink, paper));
   }
   if (input.furniture?.length) parts.push(furnitureSvg(input.furniture, ink, paper));
   parts.push('</svg>');

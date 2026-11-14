@@ -8,6 +8,7 @@
    ========================================================================== */
 
 import type { DrawingIntent, DrawingKind, LineStyle, MaskRegion, Unit } from '../types';
+import { annotationBandHeight } from '../annotationOverlay';
 import { describeRect, sheetLayout } from '../sheetLayout';
 
 /** 每種圖面類型的視角與構圖骨架 */
@@ -101,6 +102,9 @@ export function sheetOverlayGuard(intent: DrawingIntent): string {
     titleBlock: intent.annotation.titleBlock,
     measurements: hasMeasurementRows(intent),
     scaleBar: intent.annotation.scaleBar,
+    /* 舊呼叫端在這裡漏傳標註帶高度，導致「產圖前後面板看到的位置」與「實際送給模型的留白位置」差一整條帶。
+       這裡補上，兩邊才是同一份版面。 */
+    annotation: annotationBandHeight(intent),
   });
   const titleSlot = layout.titleBlock
     ?? sheetLayout({ titleBlock: true, measurements: false, scaleBar: false }).titleBlock;
@@ -116,6 +120,7 @@ export function reservedSheetClause(intent: DrawingIntent): string {
     titleBlock: intent.annotation.titleBlock,
     measurements: hasMeasurementRows(intent),
     scaleBar: intent.annotation.scaleBar,
+    annotation: annotationBandHeight(intent),
   });
   const lines = [
     `Sheet division: every view, section, dimension line, leader and hatch must stay strictly inside the drawing area at ${describeRect(layout.drawing)}.`,
@@ -141,6 +146,15 @@ export function reservedSheetClause(intent: DrawingIntent): string {
     );
   } else {
     lines.push('Scale bar: do not draw a graphic scale bar or any ruler graphic.');
+  }
+  if (layout.annotation) {
+    lines.push(
+      `Annotation band: keep the band at ${describeRect(layout.annotation)} as blank white paper; the application renders the dimension values, tolerances, GD&T feature-control frames and part-number leaders into that band as an overlay layer after generation. Do not draw those annotations into the band, and do not draw them anywhere else either.`,
+    );
+  } else {
+    lines.push(
+      'Annotations: do not draw dimension values, tolerance notes, GD&T feature-control frames or part-number leaders; the application draws them itself.',
+    );
   }
   lines.push(
     'Overlap guard: nothing may be drawn on top of another element — dimension geometry must sit clear of the geometry it measures and no annotation may cover a view.',

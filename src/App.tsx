@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { generate, inpaint, type RunProgress } from './core/pipeline/orchestrator';
 import { DraftCache, generationKey, type PreparedGeneration } from './core/pipeline/draftCache';
+import type { DraftSvg } from './core/pipeline/draft';
 import { RunFailureDialog } from './ui/RunFailureDialog';
 import { ReuseDraftDialog } from './ui/ReuseDraftDialog';
 import { isTimeout, TimeoutError } from './core/net/transport';
@@ -17,6 +18,7 @@ import { createDefaultIntent, type Artboard, type DrawingIntent, type MaskRegion
 import { createDefaultCadWorkspace } from './core/cad';
 import { createSafeId } from './core/projectSafety';
 import { shouldOverlayLabels } from './core/textOverlay';
+import { annotationBandHeight, annotationOverlayActive, annotationPrimitives } from './core/annotationOverlay';
 import { sheetLayout } from './core/sheetLayout';
 import { sheetFurniture, sheetViewHeight } from './core/sheetFurniture';
 import { buildSheetSvg } from './core/sheetSvg';
@@ -41,6 +43,7 @@ import {
   IconZoomFit,
 } from './ui/icons';
 import { IntentPanel } from './ui/IntentPanel';
+import { DraftPanel } from './ui/DraftPanel';
 import { Button, Dot, Field, Section, Select } from './ui/primitives';
 import { SettingsSheet, type CategoryId } from './ui/SettingsSheet';
 import { UpdatePromptDialog } from './ui/UpdatePromptDialog';
@@ -198,6 +201,9 @@ function Workspace({
   const draftCacheRef = useRef(new DraftCache());
   const [generationFailure, setGenerationFailure] = useState<{ key: string; message: string } | null>(null);
   const [failureOpen, setFailureOpen] = useState(false);
+  /* 右欄草稿區塊：文字模型這一輪畫出的線稿與精煉後提示詞。 */
+  const [draftPreview, setDraftPreview] = useState<DraftSvg | null>(null);
+  const [draftPrompt, setDraftPrompt] = useState('');
   /* 第二次生圖前的「沿用或重新精煉」提示。 */
   const [reuseAskOpen, setReuseAskOpen] = useState(false);
   const retryKey = useMemo(() => generationKey(intent, settings.canvas), [intent, settings.canvas.width, settings.canvas.height]);
@@ -471,6 +477,10 @@ function Workspace({
         onPrepared: (prepared: PreparedGeneration) => {
           if (task === 'generate' && abortRef.current === ctrl && !ctrl.signal.aborted) {
             draftCacheRef.current.remember(prepared);
+            /* 同一份草稿也放進 state 顯示在右欄：使用者要能「看到」文字模型畫了什麼，
+               不能只存在快取裡等到失敗要重用時才被想起。 */
+            setDraftPreview(prepared.draft);
+            setDraftPrompt(prepared.basePrompt);
           }
         },
         onProgress: (progress: RunProgress) =>
@@ -532,10 +542,13 @@ function Workspace({
   /* 圖框配置：由標註選項推導；生圖提示詞、畫布預覽與匯出共用同一份幾何。 */
   const sheet = useMemo(() => {
     if (!current) return null;
+    /* 標註帶高度取自 annotationBandHeight()：它同時決定「生圖前要保留多高」與
+       「生圖後標註疊在哪裡」，兩邊共用同一個值才不會差一截。 */
     const layout = sheetLayout({
       titleBlock: current.intent.annotation.titleBlock,
       measurements: hasMeasurementRows(current.intent),
       scaleBar: current.intent.annotation.scaleBar,
+      annotation: annotationBandHeight(current.intent),
     });
     const viewHeight = sheetViewHeight(current.width, current.height);
     const furniture = sheetFurniture({
@@ -545,7 +558,15 @@ function Workspace({
       labels: { date: t.intent.sheetDate, scaleBar: t.intent.scaleBar },
       viewHeight,
     });
-    return { viewHeight, furniture };
+    return {
+      viewHeight,
+      furniture,
+      layout,
+      /* 預覽用的標註圖元與匯出共用同一個函式；生圖模型繪製模式不給，避免同一標註畫兩次。 */
+      annotations: annotationOverlayActive(current.intent)
+        ? annotationPrimitives({ intent: current.intent, layout, viewHeight })
+        : [],
+    };
   }, [current, t]);
 
   /** 匯出用：底圖、草稿向量、文字標示、圖框合成一張自足的 SVG。 */
@@ -559,6 +580,10 @@ function Workspace({
         draftSvg: current.draftSvg,
         labels: shouldOverlayLabels(current.intent) ? current.textLabels : undefined,
         furniture: sheet.furniture,
+        layout: sheet.layout,
+        /* 應用程式精確疊加模式：生圖完成後由程式把尺寸／公差／幾何公差／引線疊回去。
+           生圖模型繪製模式交給模型自己畫，這裡整組不給，避免同一標註出現兩次。 */
+        annotation: annotationOverlayActive(current.intent) ? { intent: current.intent, viewHeight: sheet.viewHeight } : undefined,
         viewHeight: sheet.viewHeight,
         dark: current.intent.lineStyle === 'blueprint',
       });
@@ -788,6 +813,7 @@ function Workspace({
               masks={masks}
               furniture={sheet?.furniture ?? []}
               furnitureHeight={sheet?.viewHeight ?? 700}
+              annotations={sheet?.annotations ?? []}
               showGrid={showGrid}
               maskMode={maskMode}
               zoomBoxMode={zoomBoxMode}
@@ -827,6 +853,14 @@ function Workspace({
               />
               <p className="field__hint">{t.right.imageEngineHint}</p>
             </Section>
+
+            {/* 草稿區塊緊接在出圖引擎之後：使用者剛選完引擎，接下來最想知道的就是
+                文字模型這一輪準備了什麼草稿與提示詞。 */}
+            <DraftPanel
+              draft={draftPreview}
+              prompt={draftPrompt}
+              dark={current?.intent.lineStyle === 'blueprint'}
+            />
 
             <Section variant="block" title={t.right.masks} aside={<span className="field__hint num">{masks.length}</span>}>
               {masks.length === 0 ? (

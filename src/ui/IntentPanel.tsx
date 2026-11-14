@@ -164,14 +164,20 @@ export function IntentPanel({ intent, onChange }: Props) {
                 <input className="input" value={intent.text.title} onChange={(e) => patchText({ title: e.target.value })} />
               </Field>
               <Field label={t.intent.sheetDate} hint={t.intent.sheetDateHint}>
-                <div className="dimrow">
+                {/* 日期列自成一條 grid：.dimrow 的三欄是給「數值＋單位＋刪除」用的，
+                    拿來擺日期會把輸入框壓成 88px（日期顯示不下）、按鈕卻吃掉其餘寬度。 */}
+                <div className="dimrow dimrow--date">
                   <input
                     className="input"
                     type="date"
                     value={/^\d{4}-\d{2}-\d{2}$/.test(intent.text.date) ? intent.text.date : ''}
                     onChange={(e) => patchText({ date: e.target.value })}
                   />
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => patchText({ date: new Date().toISOString().slice(0, 10) })}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm btn--now"
+                    onClick={() => patchText({ date: new Date().toISOString().slice(0, 10) })}
+                  >
                     {t.intent.dateToday}
                   </button>
                 </div>

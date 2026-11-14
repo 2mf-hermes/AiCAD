@@ -11,6 +11,8 @@ import {
 import { createSafeId } from '../core/projectSafety';
 import { arrowLines, dimensionGeometry } from '../core/dimension';
 import { LABEL_FONT_STACK, placeLabels, shouldOverlayLabels } from '../core/textOverlay';
+import type { AnnotationPrimitive } from '../core/annotationOverlay';
+import { annotationNodes } from './AnnotationLayer';
 
 interface Props {
   artboard: Artboard | null;
@@ -20,6 +22,8 @@ interface Props {
   furniture: readonly FurniturePrimitive[];
   /** 圖框座標系高度（viewBox 0 0 1000 furnitureHeight）。 */
   furnitureHeight: number;
+  /** 標註圖層圖元（尺寸／公差／幾何公差／零件編號引線）；空陣列代表這一張沒有要疊加的標註。 */
+  annotations?: readonly AnnotationPrimitive[];
   showGrid: boolean;
   maskMode: boolean;
   zoomBoxMode: boolean;
@@ -36,7 +40,7 @@ const MIN_SIZE = 0.015;
 const DRAW_TOOLS: CadTool[] = ['line', 'rectangle', 'circle', 'dimension'];
 
 export function DrawingCanvas({
-  artboard, ratio, masks, furniture, furnitureHeight, showGrid, maskMode, zoomBoxMode,
+  artboard, ratio, masks, furniture, furnitureHeight, annotations = [], showGrid, maskMode, zoomBoxMode,
   cadWorkspace, onCadWorkspaceChange, onZoomBoxModeChange, onAddMask,
 }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -331,6 +335,18 @@ export function DrawingCanvas({
             : <CadShape entity={createCadEntity(cadWorkspace, cadWorkspace.activeTool as 'line' | 'circle' | 'dimension', cadDraft.start, cadDraft.end, 'draft') ?? { id: 'draft', kind: 'line', layerId: '', color: '#5EA2FF', start: cadDraft.start, end: cadDraft.end }} selected draft />)}
           {snapPoint && <SnapIndicator snap={snapPoint} />}
         </svg>
+        {annotations.length > 0 && (
+          /* 標註圖層：應用程式精確疊加模式下，由程式把尺寸／公差／幾何公差／零件編號引線
+             疊在生圖結果上。座標與匯出共用 animationPrimitives()，所以看到什麼就匯出什麼。 */
+          <svg
+            className={`sheet__furniture${artboard?.intent.lineStyle === 'blueprint' ? ' sheet__furniture--dark' : ''}`}
+            viewBox={`0 0 1000 ${furnitureHeight}`}
+            preserveAspectRatio="none"
+            aria-label="標註圖層"
+          >
+            {annotationNodes(annotations)}
+          </svg>
+        )}
         {furniture.length > 0 && (
           /* 圖框（標題欄／比例尺／尺寸列）與匯出共用同一份幾何；drawingText 由呼叫端算好，
              這裡只負責把圖元畫出來，不再自己決定位置。 */

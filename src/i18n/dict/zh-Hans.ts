@@ -181,7 +181,12 @@ export const zhHans: Dict = {
     engine: '引擎',
     model: '模型',
     resolvedPrompt: '实际提示词',
-    resolvedPromptHint: '可全选复制，用于复现或排错',
+    resolvedPromptHint: '可全选复制，用于复现或排错',
+    draftTitle: '草稿与精炼提示词',
+    draftEmpty: '按下产图后，文字模型会先精炼提示词并画一张线稿草稿，内容会显示在这里。',
+    draftAlt: '文字模型产生的线稿草稿',
+    draftNoSketch: '这一轮没有产生线稿草稿，只精炼了提示词。',
+    draftPromptHint: '这是最后送出生图模型（含草稿几何）的提示词，可直接复制核对。',
   },
 
   generationRetry: {

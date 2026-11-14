@@ -183,7 +183,12 @@ export const en: Dict = {
     engine: 'Engine',
     model: 'Model',
     resolvedPrompt: 'Resolved prompt',
-    resolvedPromptHint: 'Select all to copy — useful for reproducing or debugging',
+    resolvedPromptHint: 'Select all to copy — useful for reproducing or debugging',
+    draftTitle: 'Draft & refined prompt',
+    draftEmpty: 'After you press generate, the text model refines the prompt and sketches a line draft; it appears here.',
+    draftAlt: 'Line draft produced by the text model',
+    draftNoSketch: 'This run refined the prompt but produced no line draft.',
+    draftPromptHint: 'This is the prompt finally sent to the image model with the draft geometry — copy it to verify.',
   },
 
   generationRetry: {

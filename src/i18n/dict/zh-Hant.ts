@@ -188,7 +188,12 @@ export const zhHant = {
     engine: '引擎',
     model: '模型',
     resolvedPrompt: '實際提示語',
-    resolvedPromptHint: '可全選複製，用於重現或除錯',
+    resolvedPromptHint: '可全選複製，用於重現或除錯',
+    draftTitle: '草稿與精煉提示詞',
+    draftEmpty: '按下產圖後，文字模型會先精煉提示詞並畫一張線稿草稿，內容會顯示在這裡。',
+    draftAlt: '文字模型產生的線稿草稿',
+    draftNoSketch: '這一輪沒有產生線稿草稿，只精煉了提示詞。',
+    draftPromptHint: '這是最後送出生圖模型（含草稿幾何）的提示詞，可直接複製核對。',
   },
 
   generationRetry: {
