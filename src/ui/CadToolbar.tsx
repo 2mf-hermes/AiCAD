@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
   addCadLayer, deleteCadLayer, resolveCadCommand, updateCadLayer,
   type ArrayMode, type CadDimensionEntity, type CadTool, type CadWorkspaceState, type DimensionMode, type OsnapMode,
@@ -50,11 +50,43 @@ const ALL_TOOLS = [...DRAW_TOOLS, ...MODIFY_TOOLS, ...ANNOTATE_TOOLS, ...LIBRARY
 const ARRAY_MODES: { value: ArrayMode; label: string }[] = [{ value: 'rectangular', label: '矩形' }, { value: 'polar', label: '環形' }, { value: 'path', label: '路徑' }];
 const OSNAP_MODES: { value: OsnapMode; label: string }[] = [{ value: 'endpoint', label: '端點' }, { value: 'midpoint', label: '中點' }, { value: 'center', label: '圓心' }, { value: 'quadrant', label: '象限點' }, { value: 'intersection', label: '交點' }];
 
+/* 彈出面板定位：面板列是橫向捲動容器，絕對定位的彈出面板會被它裁掉（先前「下拉選單被遮擋」的成因）。
+   改成 position:fixed，座標由觸發按鈕的實際位置算出來；fixed 的定位基準是視窗，
+   不吃祖先的 overflow 裁切，所以窄視窗滑動時下拉選單依然完整看得見，也不會超出視窗右緣。 */
+function useAnchoredPopover(open: boolean, anchor: React.RefObject<HTMLElement | null>, preferredWidth: number): CSSProperties | undefined {
+  const [style, setStyle] = useState<CSSProperties>();
+  useLayoutEffect(() => {
+    if (!open) { setStyle(undefined); return; }
+    const place = () => {
+      const el = anchor.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const width = Math.min(preferredWidth, Math.max(180, window.innerWidth - 16));
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 10));
+      const top = Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 140));
+      setStyle({ top, left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open, anchor, preferredWidth]);
+  return style;
+}
+
 export function CadToolbar({ value, onChange }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelsRef = useRef<HTMLDivElement>(null);
+  const layerAnchorRef = useRef<HTMLButtonElement>(null);
+  const snapAnchorRef = useRef<HTMLButtonElement>(null);
   const [showLayer, setShowLayer] = useState(false);
   const [showSnap, setShowSnap] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const layerPopoverStyle = useAnchoredPopover(showLayer, layerAnchorRef, 390);
+  const snapPopoverStyle = useAnchoredPopover(showSnap, snapAnchorRef, 210);
   /* 頁籤目前選的是哪一個：底線指示器跟著它走，面板也只留它那一組。
      （先前底線寫死在「常用」上，使用者點別的頁籤也不會動。） */
   const [activeTab, setActiveTab] = useState<RibbonTab>('common');
@@ -72,6 +104,12 @@ export function CadToolbar({ value, onChange }: Props) {
   /* 面板只留目前頁籤那一組；「常用」＝全部，維持原本一眼看到所有指令的設計。 */
   const shownPanels: PanelId[] = activeTab === 'common' ? ['draw', 'modify', 'annotate', 'control'] : [activeTab];
   const shows = (id: PanelId) => shownPanels.includes(id);
+  /* 換頁籤等於整排指令換內容，捲動位置要歸零：
+     否則從「修改」跳到「標註」時會停在上一組的偏移量，開頭幾顆按鈕直接消失在左邊界外。 */
+  const selectTab = (id: RibbonTab) => {
+    setActiveTab(id);
+    if (panelsRef.current) panelsRef.current.scrollLeft = 0;
+  };
   useEffect(() => {
     const close = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) { setShowLayer(false); setShowSnap(false); }
@@ -89,7 +127,11 @@ export function CadToolbar({ value, onChange }: Props) {
       className={`cad-ribbon__tool${tool.large ? ' cad-ribbon__tool--large' : ''}`}
       aria-pressed={value.activeTool === tool.id}
       title={tool.shortcut ? `${tool.label}（${tool.shortcut}）` : tool.label}
-      onClick={() => choose(tool.id)}
+      onClick={(event) => {
+        /* 按鈕在窄畫面可能被捲到看不見的地方；先把它帶回可視範圍，使用者才知道自己按了什麼。 */
+        event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        choose(tool.id);
+      }}
     >
       <ToolIcon name={tool.icon} />
       <span>{tool.label}</span>
@@ -108,7 +150,7 @@ export function CadToolbar({ value, onChange }: Props) {
             role="tab"
             aria-selected={activeTab === tab.id}
             title={tab.id === 'common' ? '顯示全部工具面板' : `只顯示「${tab.label}」面板`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => selectTab(tab.id)}
           >
             {tab.label}
           </button>
@@ -149,7 +191,7 @@ export function CadToolbar({ value, onChange }: Props) {
     </div>
 
     {!collapsed && (
-      <div className="cad-ribbon__panels">
+      <div className="cad-ribbon__panels" ref={panelsRef}>
         {shows('draw') && <Panel title="繪圖">
           <div className="cad-ribbon__toolgrid">{DRAW_TOOLS.map(toolButton)}</div>
         </Panel>}
@@ -163,11 +205,11 @@ export function CadToolbar({ value, onChange }: Props) {
         {shows('control') && <Panel title="圖層">
           <div className="cad-ribbon__toolgrid cad-ribbon__toolgrid--pair">
             <div className="cad-ribbon__control">
-              <button type="button" className="cad-ribbon__toggle" aria-expanded={showLayer} title={`圖層：${activeLayer?.name ?? '—'}`} onClick={() => setShowLayer(!showLayer)}>
+              <button type="button" ref={layerAnchorRef} className="cad-ribbon__toggle" aria-expanded={showLayer} title={`圖層：${activeLayer?.name ?? '—'}`} onClick={() => setShowLayer(!showLayer)}>
                 <ToolIcon name="layers" />
                 <span className="cad-ribbon__truncate">{activeLayer?.name ?? '—'}</span>
               </button>
-              {showLayer && <div className="cad-ribbon__popover cad-ribbon__popover--layer">
+              {showLayer && <div className="cad-ribbon__popover cad-ribbon__popover--layer" style={layerPopoverStyle}>
                 <div className="cad-ribbon__layer-head"><strong>圖層管理</strong><button type="button" onClick={addLayer}>＋ 新增</button></div>
                 {value.layers.map((layer) => <div className="cad-ribbon__layer" key={layer.id}>
                   <button type="button" className="cad-ribbon__layer-name" aria-current={layer.id === value.activeLayerId} disabled={!layer.visible || layer.locked} title={!layer.visible ? '請先顯示此圖層' : layer.locked ? '請先解除鎖定' : '設為目前圖層'} onClick={() => onChange({ ...value, activeLayerId: layer.id })}>{layer.name}</button>
@@ -187,8 +229,8 @@ export function CadToolbar({ value, onChange }: Props) {
                 <ToolIcon name="osnap" />
                 <span>鎖點</span>
               </button>
-              <button type="button" className="cad-ribbon__disclosure" aria-expanded={showSnap} aria-label="設定物件鎖點" title="鎖點模式" onClick={() => setShowSnap(!showSnap)}>⌄</button>
-              {showSnap && <div className="cad-ribbon__popover">{OSNAP_MODES.map((mode) => <label key={mode.value} className="cad-ribbon__check"><input type="checkbox" checked={value.osnapModes.includes(mode.value)} onChange={(event) => onChange({ ...value, osnapModes: event.target.checked ? [...value.osnapModes, mode.value] : value.osnapModes.filter((item) => item !== mode.value) })} />{mode.label}</label>)}</div>}
+              <button type="button" ref={snapAnchorRef} className="cad-ribbon__disclosure" aria-expanded={showSnap} aria-label="設定物件鎖點" title="鎖點模式" onClick={() => setShowSnap(!showSnap)}>⌄</button>
+              {showSnap && <div className="cad-ribbon__popover" style={snapPopoverStyle}>{OSNAP_MODES.map((mode) => <label key={mode.value} className="cad-ribbon__check"><input type="checkbox" checked={value.osnapModes.includes(mode.value)} onChange={(event) => onChange({ ...value, osnapModes: event.target.checked ? [...value.osnapModes, mode.value] : value.osnapModes.filter((item) => item !== mode.value) })} />{mode.label}</label>)}</div>}
             </div>
           </div>
         </Panel>}

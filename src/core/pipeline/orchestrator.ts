@@ -29,7 +29,7 @@ import type { Settings } from '../settings';
 import type { Artboard, DrawingIntent, DrawingTextLabel, MaskRegion } from '../types';
 import { createSafeId } from '../projectSafety';
 import { shouldOverlayLabels } from '../textOverlay';
-import { generationKey, type PreparedGeneration } from './draftCache';
+import { generationKey, type DraftIssue, type PreparedGeneration } from './draftCache';
 import { locateAnnotations } from './annotationPlacement';
 import { annotationBandHeight } from '../annotationOverlay';
 import { sheetLayout } from '../sheetLayout';
@@ -154,62 +154,96 @@ async function resolvePrompt(intent: DrawingIntent, deps: RunDeps): Promise<{ pr
  */
 const DRAFT_MAX_OUTPUT_TOKENS = 8_000;
 
-async function buildDraft(intent: DrawingIntent, deps: RunDeps, refinedSubject?: string): Promise<DraftSvg | null> {
+/** 第二輪只交 SVG（不含 HTML 版面），輸出量少一半，被截斷的機率跟著下降。 */
+const DRAFT_RETRY_MAX_OUTPUT_TOKENS = 6_000;
+
+interface DraftOutcome {
+  draft: DraftSvg | null;
+  issue: DraftIssue | null;
+}
+
+/** 把模型的一次回覆收成可用的線稿；收不成就回 null（由呼叫端決定要不要重試）。 */
+function toDraft(intent: DrawingIntent, result: string): DraftSvg | null {
+  const svg = normalizeDraftSvg(result);
+  if (!svg) return null;
+  return {
+    svg,
+    /* 同一份線稿的另一種表現：HTML 版本給模型讀結構，也讓人類看得懂。 */
+    html: extractDraftHtml(result, svg),
+    summary: summarizeDraft(svg),
+    labels: shouldOverlayLabels(intent) ? extractTextLabels(result) : [],
+  };
+}
+
+async function buildDraft(intent: DrawingIntent, deps: RunDeps, refinedSubject?: string): Promise<DraftOutcome> {
   const selected = deps.settings.activeTextProvider;
-  if (selected === 'none') return null;
+  if (selected === 'none') return { draft: null, issue: 'no-text-model' };
 
   const images = (intent.references ?? [])
     .filter((r) => r.mimeType.startsWith('image/'))
     .map((r) => ({ mimeType: r.mimeType, base64: r.dataUrl.split(',')[1] ?? '' }));
 
-  try {
-    const { result } = await executeWithFallback(
-      preferredFirst(deps.settings.providers, selected),
-      'text',
-      async (config, signal) => {
-        const output = await createProvider(config).generate(
-          {
-            mode: 'text',
-            input: {
-              draft: 'Produce the SVG construction draft now.',
-              subject: buildDraftRequest(intent, refinedSubject),
-              /* 這一段的任務是「畫出幾何」而不是「寫出幾何描述」，
-                 所以整組系統指令換掉，不沿用精煉用的規則。 */
-              systemPrompt: buildDraftSystemPrompt(),
-              /* 圍籬用組字方式產生：這串文字會被塞進 provider 的訊息樣板，
-                 兩個連續的 ``` 會讓樣板把後半段當成程式碼區塊而吃掉。 */
-              instruction: `Answer with the ${'`'.repeat(3)}svg block, then the ${'`'.repeat(3)}html block, and nothing else.`,
-              /* SVG 草稿動輒數千 token；沿用精煉用的短上限，輸出一定被截斷在半路，
-                 於是每一輪都「精煉成功、草稿失敗」。這裡明確要足量輸出。 */
-              maxOutputTokens: DRAFT_MAX_OUTPUT_TOKENS,
-              images: images.length ? images : undefined,
-            },
+  /* 同一個請求要跑兩次，所以包成閉包；strict 版本只交一個 SVG 區塊。 */
+  const requestDraft = (strict: boolean) => executeWithFallback(
+    preferredFirst(deps.settings.providers, selected),
+    'text',
+    async (config, signal) => {
+      const output = await createProvider(config).generate(
+        {
+          mode: 'text',
+          input: {
+            draft: 'Produce the SVG construction draft now.',
+            subject: buildDraftRequest(intent, refinedSubject),
+            /* 這一段的任務是「畫出幾何」而不是「寫出幾何描述」，
+               所以整組系統指令換掉，不沿用精煉用的規則。 */
+            systemPrompt: buildDraftSystemPrompt(),
+            /* 圍欄用組字方式產生：這串文字會被塞進 provider 的訊息樣板，
+               兩個連續的 ``` 會讓樣板把後半段當成程式碼區塊而吃掉。 */
+            instruction: strict
+              ? `Answer with one ${'`'.repeat(3)}svg block and nothing else - no HTML, no prose. Draw every line as <line>, <polyline> or <path>.`
+              : `Answer with the ${'`'.repeat(3)}svg block, then the ${'`'.repeat(3)}html block, and nothing else.`,
+            /* SVG 草稿動輒數千 token；沿用精煉用的短上限，輸出一定被截斷在半路，
+               於是每一輪都「精煉成功、草稿失敗」。這裡明確要足量輸出。 */
+            maxOutputTokens: strict ? DRAFT_RETRY_MAX_OUTPUT_TOKENS : DRAFT_MAX_OUTPUT_TOKENS,
+            images: images.length ? images : undefined,
           },
-          signal,
-        );
-        if (typeof output !== 'string') {
-          throw new ProviderError('草稿回應格式無效', config.id, undefined, undefined, 'invalid-response');
-        }
-        return output;
-      },
-      deps.signal,
-      (config, attempt) => deps.onProgress({
-        stage: 'drafting',
-        note: `${config.name} 正在擬定圖面草稿${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}`,
-      }),
-    );
-    const svg = normalizeDraftSvg(result);
-    if (!svg) return null;
-    return {
-      svg,
-      /* 同一份線稿的另一種表現：HTML 版本給模型讀結構，也讓人類看得懂。 */
-      html: extractDraftHtml(result, svg),
-      summary: summarizeDraft(svg),
-      labels: shouldOverlayLabels(intent) ? extractTextLabels(result) : [],
-    };
+        },
+        signal,
+      );
+      if (typeof output !== 'string') {
+        throw new ProviderError('草稿回應格式無效', config.id, undefined, undefined, 'invalid-response');
+      }
+      return output;
+    },
+    deps.signal,
+    (config, attempt) => deps.onProgress({
+      stage: 'drafting',
+      note: `${config.name} 正在擬定圖面草稿${attempt > 1 ? `（重試 ${attempt - 1}）` : ''}`,
+    }),
+  );
+
+  let first: string;
+  try {
+    first = (await requestDraft(false)).result;
   } catch {
     deps.signal.throwIfAborted();
-    return null;
+    return { draft: null, issue: 'error' };
+  }
+  const firstDraft = toDraft(intent, first);
+  if (firstDraft) return { draft: firstDraft, issue: null };
+
+  /* 第一輪收不出幾何就再要一次，這次只要一個 SVG 區塊。
+     模型最常見的失敗是把輸出額度花在 HTML 版面上、或只回一段說明，
+     縮小要求通常就換得到線稿 —— 這正是「精煉成功、草稿失敗」的實務解法。 */
+  deps.onProgress({ stage: 'drafting', note: '草稿沒有可用線稿，改以純 SVG 重擬一次' });
+  try {
+    const second = (await requestDraft(true)).result;
+    const secondDraft = toDraft(intent, second);
+    return secondDraft ? { draft: secondDraft, issue: null } : { draft: null, issue: 'unparsed' };
+  } catch {
+    deps.signal.throwIfAborted();
+    /* 第一輪有回話（只是解析不出線稿），對使用者而言仍是「草稿失敗」而非連線錯誤。 */
+    return { draft: null, issue: 'unparsed' };
   }
 }
 
@@ -300,8 +334,12 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
   const resolved = reused ? { prompt: reused.basePrompt, fromModel: true } : await resolvePrompt(intent, deps);
   const basePrompt = resolved.prompt;
   deps.signal.throwIfAborted();
-  // 草稿失敗就當作沒有草稿，絕不因此中斷生成。
-  const draft = reused ? structuredClone(reused.draft) : await buildDraft(intent, deps, refinedSubjectOf(basePrompt));
+  /* 草稿失敗就當作沒有草稿，絕不因此中斷生成 —— 但要留下原因，
+     否則右欄只會是一片空白，使用者無從分辨「跳過」與「失敗」。 */
+  const draftOutcome: DraftOutcome = reused
+    ? { draft: structuredClone(reused.draft), issue: reused.draft ? null : reused.draftIssue ?? null }
+    : await buildDraft(intent, deps, refinedSubjectOf(basePrompt));
+  const draft = draftOutcome.draft;
   deps.signal.throwIfAborted();
   /* 草稿只判讀一次：翻譯出來的提示詞跟著草稿一起進快取，重試時不必再問一次模型。
      已有快取時直接沿用上次的翻譯成果 —— 這正是「沿用上次文字模型內容」的意義。 */
@@ -314,7 +352,13 @@ export async function generate(intent: DrawingIntent, deps: RunDeps, options: { 
   /* Publish before image generation: errors/timeouts must not lose successful text work.
      精煉失敗（fromModel=false）但草稿畫得出來時也要發佈 —— 草稿本身就是文字模型的成果，
      不發佈的話右側草稿區永遠空白，使用者只看到「沒草稿就直接生圖」。 */
-  deps.onPrepared?.({ key, draft: preparedDraft, basePrompt, textModelUsed: resolved.fromModel || Boolean(draft) });
+  deps.onPrepared?.({
+    key,
+    draft: preparedDraft,
+    basePrompt,
+    textModelUsed: resolved.fromModel || Boolean(draft),
+    draftIssue: draftOutcome.issue ?? null,
+  });
   /* 翻譯成功就用它；失敗則退回「骨架＋草稿幾何摘要」，資訊較少但仍可生圖。
      兩條路都只是提示詞；版面靠下面單獨附上的草稿檢視圖表達。 */
   const textualPrompt = draft ? mergeDraftIntoPrompt(basePrompt, draft, Boolean(draftView)) : basePrompt;

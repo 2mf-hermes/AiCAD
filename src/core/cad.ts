@@ -413,6 +413,49 @@ export function updateCadLayer(workspace: CadWorkspaceState, id: string, delta: 
   return next;
 }
 
+/** 一個「程式管理的圖層」規格：標註圖層就是由標註項目推導出來的一層。 */
+export interface CadManagedLayerSpec { id: string; name: string; color?: string; }
+
+/**
+ * 把程式管理的圖層對齊到目前的規格：缺的補上、多的收掉、已存在的一律不動。
+ *
+ * 為什麼不直接呼叫 addCadLayer：addCadLayer 會把新圖層設成「目前圖層」，
+ * 一次補五個標註圖層就會把使用者正在畫的圖層搶走。
+ * 為什麼已存在的不覆寫名稱與可見度：可見度是使用者的設定，
+ * 重新產生圖面不該把「我剛才關掉的公差」又自己打開。
+ * 收掉時只收「沒有任何圖元」的層，避免連帶刪掉使用者畫進去的線。
+ */
+export function syncManagedCadLayers(
+  workspace: CadWorkspaceState,
+  specs: readonly CadManagedLayerSpec[],
+  managed: (id: string) => boolean,
+): CadWorkspaceState {
+  const wanted = new Map(specs.map((spec) => [spec.id, spec]));
+  const used = new Set(workspace.entities.map((entity) => entity.layerId));
+  const kept = workspace.layers.filter((layer) => !managed(layer.id) || wanted.has(layer.id) || used.has(layer.id));
+  const present = new Set(kept.map((layer) => layer.id));
+  const room = Math.max(0, 100 - kept.length);
+  const added: CadLayer[] = [];
+  for (const spec of specs.slice(0, room)) {
+    if (present.has(spec.id)) continue;
+    present.add(spec.id);
+    added.push({
+      id: spec.id,
+      name: spec.name.trim().slice(0, 80) || spec.id,
+      color: HEX_COLOR.test(spec.color ?? '') ? spec.color! : '#2D3138',
+      visible: true,
+      locked: false,
+    });
+  }
+  if (!added.length && kept.length === workspace.layers.length) return workspace;
+  const layers = [...kept, ...added];
+  /* 目前圖層若被收掉（例如該標註項目被關閉），退回第一個還能畫圖的圖層。 */
+  const activeLayerId = layers.some((layer) => layer.id === workspace.activeLayerId)
+    ? workspace.activeLayerId
+    : layers.find((layer) => layer.visible && !layer.locked)?.id ?? layers[0].id;
+  return { ...workspace, layers, activeLayerId };
+}
+
 export function deleteCadLayer(workspace: CadWorkspaceState, id: string): CadWorkspaceState {
   if (workspace.layers.length <= 1) return workspace;
   const layer = getCadLayer(workspace, id);

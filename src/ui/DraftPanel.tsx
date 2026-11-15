@@ -15,6 +15,7 @@ import { useT } from '../i18n';
 import { Section } from './primitives';
 import { svgDataUrl } from '../core/sheetSvg';
 import type { DraftSvg } from '../core/pipeline/draft';
+import type { DraftIssue } from '../core/pipeline/draftCache';
 
 interface Props {
   draft: DraftSvg | null;
@@ -26,9 +27,11 @@ interface Props {
   busy?: boolean;
   /** 'skipped'：這一輪沒有可用文字模型，草稿階段整段被跳過。 */
   stage?: 'idle' | 'model' | 'skipped';
+  /** 沒有草稿時的原因（'no-text-model' / 'unparsed' / 'error'），用來取代空白的面板。 */
+  issue?: DraftIssue | null;
 }
 
-export function DraftPanel({ draft, prompt, dark, busy = false, stage = 'idle' }: Props) {
+export function DraftPanel({ draft, prompt, dark, busy = false, stage = 'idle', issue = null }: Props) {
   const t = useT();
   const href = useMemo(() => {
     const svg = draft?.svg?.trim();
@@ -36,12 +39,19 @@ export function DraftPanel({ draft, prompt, dark, busy = false, stage = 'idle' }
   }, [draft]);
 
   const empty = !href && !prompt.trim();
+  /* 沒有草稿時一定要說出原因：空白面板會被讀成「跳過草稿」，
+     而真正的原因可能是模型回覆解析不出線稿。 */
+  const emptyNote = busy
+    ? t.right.draftWorking
+    : stage === 'skipped' && issue === 'no-text-model'
+      ? t.right.draftSkipped
+      : issue
+        ? t.right.draftFailed
+        : t.right.draftEmpty;
   return (
     <Section variant="block" title={t.right.draftTitle}>
       {empty ? (
-        <p className="empty-note">
-          {busy ? t.right.draftWorking : stage === 'skipped' ? t.right.draftSkipped : t.right.draftEmpty}
-        </p>
+        <p className="empty-note">{emptyNote}</p>
       ) : (
         <div className="draftpanel">
           {href ? (
@@ -49,7 +59,7 @@ export function DraftPanel({ draft, prompt, dark, busy = false, stage = 'idle' }
               <img src={href} alt={t.right.draftAlt} draggable={false} />
             </div>
           ) : (
-            <p className="field__hint">{t.right.draftNoSketch}</p>
+            <p className="field__hint">{issue ? t.right.draftFailed : t.right.draftNoSketch}</p>
           )}
           {prompt.trim() && (
             <>

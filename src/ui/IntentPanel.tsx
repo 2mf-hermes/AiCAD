@@ -14,16 +14,19 @@ import {
 } from '../core/types';
 import { useT } from '../i18n';
 import { IconClose } from './icons';
-import { Field, Section, Segmented, Select, Toggle } from './primitives';
+import { Button, Field, Section, Segmented, Select, Toggle } from './primitives';
 import { ReferencePanel } from './ReferencePanel';
 
 interface Props {
   intent: DrawingIntent;
   onChange: (next: DrawingIntent) => void;
+  /** 已經有產出的圖面可改時才開放「修改標註」；還沒產圖就沒有東西可改。 */
+  canEditAnnotations?: boolean;
+  onEditAnnotations?: () => void;
 }
 
 /** 尺寸清單以陣列在 UI 中操作，送出前才轉回 Record —— 避免鍵名重複時輸入被吃掉 */
-export function IntentPanel({ intent, onChange }: Props) {
+export function IntentPanel({ intent, onChange, canEditAnnotations = false, onEditAnnotations }: Props) {
   const t = useT();
   const rows = Object.entries(intent.measurements);
 
@@ -113,7 +116,7 @@ export function IntentPanel({ intent, onChange }: Props) {
         <p className="field__hint">{t.intent.annotationPreHint}</p>
         {/* 圖面文字模式屬於「生圖前就要決定」的項目：它會改變圖面本身的畫法，
             所以放在這裡而不是語言與文字區塊。只留兩種：應用程式疊加、生圖模型繪製。 */}
-        <Field label={t.intent.textRenderMode} hint={t.intent.textRenderModeHint}>
+        <Field label={t.intent.textRenderMode}>
           <Select<DrawingTextRenderMode>
             ariaLabel={t.intent.textRenderMode}
             value={intent.text.renderMode}
@@ -150,7 +153,6 @@ export function IntentPanel({ intent, onChange }: Props) {
           />
         </div>
 
-        <p className="field__hint">{t.intent.annotationPostHint}</p>
         <div>
           <Toggle
             label={t.intent.titleBlock}
@@ -237,6 +239,22 @@ export function IntentPanel({ intent, onChange }: Props) {
             onChange={(scaleBar) => patchAnnotation({ scaleBar })}
           />
         </div>
+        {/* 「修改標註」放在整區最後：使用者把開關調完才會想確認圖面上長什麼樣。
+            未產圖前沒有圖層可改，按鈕保持停用並說明原因，而不是按了才報錯。 */}
+        <div className="dimrow">
+          <Button
+            variant="secondary"
+            block
+            disabled={!canEditAnnotations}
+            onClick={onEditAnnotations}
+            title={canEditAnnotations ? undefined : t.intent.annotationEditLocked}
+          >
+            {t.intent.annotationEdit}
+          </Button>
+        </div>
+        <p className="field__hint">
+          {canEditAnnotations ? t.intent.annotationEditHint : t.intent.annotationEditLocked}
+        </p>
       </Section>
 
       <Section

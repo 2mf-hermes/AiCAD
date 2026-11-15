@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { generate, inpaint, type RunProgress } from './core/pipeline/orchestrator';
-import { DraftCache, generationKey, type PreparedGeneration } from './core/pipeline/draftCache';
+import { DraftCache, generationKey, type DraftIssue, type PreparedGeneration } from './core/pipeline/draftCache';
 import type { DraftSvg } from './core/pipeline/draft';
 import { RunFailureDialog } from './ui/RunFailureDialog';
 import { ReuseDraftDialog } from './ui/ReuseDraftDialog';
+import { AnnotationEditDialog } from './ui/AnnotationEditDialog';
 import { isTimeout, TimeoutError } from './core/net/transport';
 import { userFacingReason } from './core/net/friendly';
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from './core/projects';
@@ -15,11 +16,18 @@ import {
   type Settings,
 } from './core/settings';
 import { createDefaultIntent, type Artboard, type DrawingIntent, type MaskRegion } from './core/types';
-import { createDefaultCadWorkspace, type CadDimensionEntity } from './core/cad';
+import { createDefaultCadWorkspace, syncManagedCadLayers, type CadDimensionEntity } from './core/cad';
 import { dimensionGeometry } from './core/dimension';
 import { createSafeId } from './core/projectSafety';
 import { shouldOverlayLabels } from './core/textOverlay';
-import { annotationBandHeight, annotationOverlayActive, annotationPrimitives } from './core/annotationOverlay';
+import {
+  annotationBandHeight,
+  annotationLayerId,
+  annotationOverlayActive,
+  annotationPrimitives,
+  annotationRows,
+  isAnnotationLayerId,
+} from './core/annotationOverlay';
 import { annotationPositionsFor } from './core/annotationPlacementMap';
 import { sheetLayout } from './core/sheetLayout';
 import { sheetFurniture, sheetViewHeight } from './core/sheetFurniture';
@@ -232,8 +240,12 @@ function Workspace({
   /* 這一輪文字階段到底跑了什麼：'model' 有真跑模型、'skipped' 沒有可用文字模型被跳過。
      使用者要能看到「為什麼沒草稿」，否則只會覺得程式直接跳去生圖。 */
   const [draftStage, setDraftStage] = useState<'idle' | 'model' | 'skipped'>('idle');
+  /* 沒有草稿時的原因：右欄要靠它把「跳過」與「失敗」分開講清楚。 */
+  const [draftIssue, setDraftIssue] = useState<DraftIssue | null>(null);
   /* 第二次生圖前的「沿用或重新精煉」提示。 */
   const [reuseAskOpen, setReuseAskOpen] = useState(false);
+  /* 產圖後的「修改標註」對話框。 */
+  const [annotationEditOpen, setAnnotationEditOpen] = useState(false);
   const retryKey = useMemo(() => generationKey(intent, settings.canvas), [intent, settings.canvas.width, settings.canvas.height]);
 
   // Drawing changes invalidate text work; changing an engine or timeout does not.
@@ -270,6 +282,20 @@ function Workspace({
   );
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  /**
+   * 「修改標註」同時改兩份 intent 的同兩個欄位：
+   * 目前圖面那一份決定圖上疊什麼，左欄那一份決定下次產圖要帶什麼選項。
+   * 只覆蓋 annotation / text，其餘欄位（例如產圖後才改的提示詞）一律保留。
+   */
+  const patchSheetAnnotations = useCallback(
+    (next: DrawingIntent) => {
+      const patch = { annotation: next.annotation, text: next.text };
+      setHistory((h) => h.map((board) => (board.id === currentId ? { ...board, intent: { ...board.intent, ...patch } } : board)));
+      setIntent((value) => ({ ...value, ...patch }));
+    },
+    [currentId],
+  );
 
   const busy = run.kind === 'busy';
   const ratio = settings.canvas.width / settings.canvas.height;
@@ -501,6 +527,7 @@ function Workspace({
           setDraftPreview(null);
           setDraftPrompt('');
           setDraftStage('idle');
+          setDraftIssue(null);
         }
       }
       const ctrl = new AbortController();
@@ -529,6 +556,7 @@ function Workspace({
             setDraftPreview(prepared.draft);
             setDraftPrompt(prepared.basePrompt);
             setDraftStage(prepared.textModelUsed ? 'model' : 'skipped');
+            setDraftIssue(prepared.draftIssue ?? null);
           }
         },
         onProgress: (progress: RunProgress) =>
@@ -588,6 +616,36 @@ function Workspace({
   }, []);
 
   /* 圖框配置：由標註選項推導；生圖提示詞、畫布預覽與匯出共用同一份幾何。 */
+  /* 每個標註項目各自一個圖層，名稱由標註項目推導。
+     為什麼要分層：尺寸標註與幾何公差是兩種不同性質的內容，
+     全部揉成一層只能全開全關，使用者無法只留下他要看的那一項。 */
+  const annotationLayerSpecs = useMemo(
+    () =>
+      current
+        ? annotationRows(current.intent).map((row) => ({
+            id: annotationLayerId(row.key),
+            name: t.intent.annotationLayer(row.key),
+          }))
+        : [],
+    [current, t],
+  );
+  /* 被使用者關掉的標註圖層：整組不畫。預覽與匯出共用同一份判斷，才不會「預覽沒有、匯出卻有」。 */
+  const hiddenAnnotationLayers = useMemo(
+    () =>
+      new Set(
+        cadWorkspace.layers
+          .filter((layer) => isAnnotationLayerId(layer.id) && layer.visible === false)
+          .map((layer) => layer.id),
+      ),
+    [cadWorkspace.layers],
+  );
+  /* 圖層對齊：標註項目增減時，標註圖層跟著增減；已存在的不動使用者調過的可見度與顏色。 */
+  useEffect(() => {
+    if (!current) return;
+    const specs = annotationOverlayActive(current.intent) ? annotationLayerSpecs : [];
+    setCadWorkspace((workspace) => syncManagedCadLayers(workspace, specs, isAnnotationLayerId));
+  }, [annotationLayerSpecs, current, setCadWorkspace]);
+
   const sheet = useMemo(() => {
     if (!current) return null;
     /* 標註帶高度取自 annotationBandHeight()：它同時決定「生圖前要保留多高」與
@@ -618,10 +676,12 @@ function Workspace({
             viewHeight,
             /* 視圖模型判讀的位置；沒有就退回固定標註帶。 */
             placements: annotationPositionsFor(current, layout, viewHeight),
+            /* 使用者關掉的標註圖層整組不畫。 */
+            hidden: hiddenAnnotationLayers,
           })
         : [],
     };
-  }, [current, t]);
+  }, [current, hiddenAnnotationLayers, t]);
 
   /* 尺寸數值的文字圖層：畫布只畫得出一張圖，匯出（PNG／SVG／DXF）要走同一份數值。
      由 dimensionGeometry() 算出數值與位置，這裡只挑出「有字」的尺寸。 */
@@ -654,6 +714,8 @@ function Workspace({
               viewHeight: sheet.viewHeight,
               /* 視圖模型看過成品後回報的位置；沒有就退回固定標註帶。 */
               placements: annotationPositionsFor(current, sheet.layout, sheet.viewHeight),
+              /* 關掉的標註圖層匯出時也不給，否則螢幕上看不到、DXF 裡卻跑出來。 */
+              hidden: hiddenAnnotationLayers,
             }
           : undefined,
         /* 尺寸數值的文字圖層：幾何與畫布共用 dimensionGeometry()，數值才不會「畫布有、匯出沒有」。 */
@@ -662,7 +724,7 @@ function Workspace({
         dark: current.intent.lineStyle === 'blueprint',
       });
     },
-    [current, dimensionLabels, sheet],
+    [current, dimensionLabels, hiddenAnnotationLayers, sheet],
   );
 
   const exportPng = useCallback(async () => {
@@ -807,7 +869,12 @@ function Workspace({
             <span className="panel__head-title">{t.left.title}</span>
           </div>
           <div className="panel__scroll">
-            <IntentPanel intent={intent} onChange={setIntent} />
+            <IntentPanel
+              intent={intent}
+              onChange={setIntent}
+              canEditAnnotations={Boolean(current)}
+              onEditAnnotations={() => setAnnotationEditOpen(true)}
+            />
           </div>
           <div className="panel__foot">
             <Button variant="primary" block disabled={!canGenerate} onClick={() => {
@@ -936,6 +1003,7 @@ function Workspace({
               dark={current?.intent.lineStyle === 'blueprint'}
               busy={run.kind === 'busy' && (run.progress.stage === 'refining' || run.progress.stage === 'drafting')}
               stage={draftStage}
+              issue={draftIssue}
             />
 
             <Section variant="block" title={t.right.masks} aside={<span className="field__hint num">{masks.length}</span>}>
@@ -1084,6 +1152,14 @@ function Workspace({
           onClose={() => setReuseAskOpen(false)}
           onReuse={() => { setReuseAskOpen(false); void execute('generate', true); }}
           onRefine={() => { setReuseAskOpen(false); void execute('generate'); }}
+        />
+      )}
+      {/* 修改標註：改的是目前檢視的圖面；圖被刪掉就沒有對象可改，直接收起。 */}
+      {annotationEditOpen && current && (
+        <AnnotationEditDialog
+          intent={current.intent}
+          onChange={patchSheetAnnotations}
+          onClose={() => setAnnotationEditOpen(false)}
         />
       )}
       {settingsOpen && (

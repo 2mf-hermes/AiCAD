@@ -17,7 +17,7 @@
 
 /* z-index 要壓過畫布（.stage__viewport 是後面的兄弟節點）：
    面板裡的下拉選單是絕對定位，屬於這一層，太低就會被畫布蓋住。 */
-.cad-ribbon{position:relative;z-index:12;display:grid;border-bottom:1px solid var(--line-hairline);background:var(--bg-panel);box-shadow:var(--shadow-1)}
+.cad-ribbon{position:relative;z-index:12;display:grid;min-width:0;max-width:100%;border-bottom:1px solid var(--line-hairline);background:var(--bg-panel);box-shadow:var(--shadow-1)}
 .cad-ribbon button,.cad-ribbon input,.cad-ribbon select{font:inherit}
 .cad-ribbon button:focus-visible,.cad-ribbon input:focus-visible,.cad-ribbon select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .cad-ribbon button:disabled{cursor:not-allowed;opacity:.45}
@@ -31,11 +31,12 @@
 .cad-ribbon__tab[aria-selected='true']{color:var(--fg-primary);font-weight:var(--fw-semibold)}
 /* 選中頁籤下方的 2px 底線：AutoCAD 標示目前頁籤的方式，比換底色安靜。 */
 .cad-ribbon__tab[aria-selected='true']::after{content:'';position:absolute;inset:auto 6px -1px 6px;height:2px;border-radius:2px 2px 0 0;background:var(--accent)}
-/* 窄視窗時 tab 列會收起來（見下方 media query），這時必須有一個地方告訴使用者
-   「現在顯示的是哪一組面板」。以前這裡寫死 display:none，窄版就完全看不出選了什麼。 */
+/* 輔助指示：現在顯示哪一組面板。
+   tab 列本身已經用底線講得很清楚，這裡是「捲動下方指令時也能一眼看到」的補強，
+   所以窄到把指令框壓縮時它可以先退場，tab 列不會退場（見下方 media query）。 */
 .cad-ribbon__active{display:flex;align-items:baseline;gap:6px;white-space:nowrap;color:var(--fg-secondary);font-size:var(--fs-micro)}
 .cad-ribbon__active strong{color:var(--fg-primary);font-size:var(--fs-caption)}
-/* 目前頁籤：窄版收起 tab 列後，這是唯一看得出「面板顯示哪一組」的地方。 */
+/* 目前頁籤名稱：與 tab 列的底線同義，只是不必回頭看 tab 列。 */
 .cad-ribbon__active-tab{padding:1px 6px;border-radius:var(--r-sm);background:var(--bg-hover);color:var(--fg-secondary);font-size:var(--fs-micro);font-weight:var(--fw-medium)}
 .cad-ribbon__collapse{display:grid;place-items:center;width:26px;height:22px;margin-left:auto;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--fg-secondary);cursor:pointer}
 .cad-ribbon__collapse:hover{border-color:var(--line-strong);background:var(--bg-hover);color:var(--fg-primary)}
@@ -44,7 +45,14 @@
 .cad-ribbon__command input::placeholder{color:var(--fg-tertiary)}
 
 /* ── 面板列 ─────────────────────────────────────────────────────────────── */
-.cad-ribbon__panels{display:flex;flex-wrap:wrap;align-items:stretch;row-gap:2px;min-width:0;position:relative}
+/* 面板列：永遠單列，視窗變窄時改成左右滑動。
+   先前用 flex-wrap:wrap，窄視窗會被擠成好幾列（工具列長高、按鈕換行到看不見）。
+   現在改成 nowrap + 橫向捲動，指令按鈕不會再被推出可視範圍。
+   overflow-x:auto 的副作用是彈出面板會被裁掉，所以 .cad-ribbon__popover 改成 fixed（見下方），
+   fixed 的定位基準是視窗、不吃祖先的 overflow 裁切。 */
+.cad-ribbon__panels{display:flex;flex-wrap:nowrap;align-items:stretch;min-width:0;max-width:100%;position:relative;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+.cad-ribbon__panels::-webkit-scrollbar{height:6px}
+.cad-ribbon__panels::-webkit-scrollbar-thumb{border-radius:3px;background:var(--line-strong)}
 .cad-ribbon__panel{display:flex;flex-direction:column;gap:2px;flex:0 0 auto;padding:5px var(--sp-3) 0;border-right:1px solid var(--line-hairline)}
 .cad-ribbon__panel:last-child{border-right:0}
 .cad-ribbon__panel--grow{flex:1 1 auto;min-width:0}
@@ -78,7 +86,9 @@
 .cad-ribbon__status{color:var(--fg-secondary);font-size:var(--fs-micro);white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* ── 彈出面板 ───────────────────────────────────────────────────────────── */
-.cad-ribbon__popover{position:absolute;z-index:40;top:calc(100% + 5px);left:0;min-width:190px;max-height:min(360px,calc(100vh - 160px));overflow:auto;padding:6px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--bg-raised);box-shadow:var(--shadow-2)}
+/* 彈出面板：實際的 top/left/width 由元件依觸發按鈕的位置算好後用 inline style 蓋上（見 CadToolbar.tsx）。
+   這裡只保留 fixed 與外觀，因為 fixed 不會被上面那層橫向捲動容器裁掉。 */
+.cad-ribbon__popover{position:fixed;z-index:1200;top:calc(100% + 5px);left:0;min-width:190px;max-height:min(360px,calc(100vh - 160px));overflow:auto;padding:6px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--bg-raised);box-shadow:var(--shadow-2)}
 .cad-ribbon__check{display:flex;align-items:center;gap:var(--sp-2);padding:5px 7px;border-radius:var(--r-sm);font-size:var(--fs-caption);cursor:pointer}
 .cad-ribbon__check:hover{background:var(--bg-hover)}
 .cad-ribbon__check input{accent-color:var(--accent)}
@@ -109,5 +119,8 @@
 .cad-ribbon__clear:hover{color:var(--accent);border-color:var(--accent)}
 
 /* ── 窄視窗 ─────────────────────────────────────────────────────────────── */
-@media(max-width:1100px){.cad-ribbon__active{display:flex}.cad-ribbon__tabs{display:none}}
-@media(max-width:900px){.cad-ribbon__command input{width:130px}.cad-ribbon__command span{display:none}.cad-ribbon__popover{position:fixed;top:92px;left:12px;max-width:calc(100vw - 24px)}}
+/* 先前 1100px 以下把整條 tab 列 display:none，等於把切換面板的唯一入口拿掉：
+   窄視窗只能用左右滑動看指令，卻沒辦法換到「修改」或「標註」那一組。
+   tab 列是這個 ribbon 的導覽，任何寬度都要留著，改為縮小間距自己讓出空間。 */
+@media(max-width:1100px){.cad-ribbon__tab{padding:0 6px}}
+@media(max-width:900px){.cad-ribbon__command input{width:130px}.cad-ribbon__command span{display:none}.cad-ribbon__active{display:none}.cad-ribbon__popover{position:fixed;top:92px;left:12px;max-width:calc(100vw - 24px)}}

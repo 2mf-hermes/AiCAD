@@ -219,17 +219,60 @@ export interface AnnotationOverlayInput {
    * 所以模型漏看、看錯不會讓某一行標註整行消失。
    */
   placements?: ReadonlyMap<string, AnnotationPosition>;
+  /**
+   * 被使用者關掉的標註圖層；裡面的標註整組不畫（預覽與匯出共用同一份判斷）。
+   * 只影響「畫不畫」，不影響其他列的排版位置 —— 關掉一列不會讓其他列跳位。
+   */
+  hidden?: ReadonlySet<string>;
 }
 
 const round = (value: number) => (Number.isFinite(value) ? Math.round(value * 100) / 100 : 0);
 
-/** 由標註帶的位置算出整組疊加圖元。沒有標註帶就回空陣列（不必多包一層 SVG）。 */
-export function annotationPrimitives(input: AnnotationOverlayInput): AnnotationPrimitive[] {
+/**
+ * 一個標註項目就是一個圖層。
+ * 為什麼要分層：同一張圖面上「尺寸」與「幾何公差」是兩種不同性質的內容，
+ * 使用者要能單獨關掉其中一種、或只把某一項挑出來看；全部揉成一層就只能全開全關。
+ */
+export interface AnnotationGroup {
+  /** 標註名稱（使用者填的欄位名稱），同時是圖層的顯示依據。 */
+  key: string;
+  kind: AnnotationRowKind;
+  /** 穩定的圖層識別碼；由名稱推導，所以存檔再開還是同一個圖層。 */
+  layerId: string;
+  primitives: AnnotationPrimitive[];
+}
+
+/** 圖層識別碼的前綴；用來把「標註圖層」和手繪圖層分開。 */
+export const ANNOTATION_LAYER_PREFIX = 'anno-';
+
+export function isAnnotationLayerId(id: string): boolean {
+  return id.startsWith(ANNOTATION_LAYER_PREFIX);
+}
+
+/**
+ * 由標註名稱推導圖層識別碼。
+ * 名稱才是身分：使用者把「總長」改成「全長」是換一項標註，但重新產生圖面時
+ * 同一批名稱要落在同一批圖層上，所以不能拿陣列索引當識別碼。
+ */
+export function annotationLayerId(key: string): string {
+  const name = key.trim();
+  const slug = name
+    .toLowerCase()
+    .replace(/[^0-9a-z\u3400-\u9fff]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 24);
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 100000;
+  return `${ANNOTATION_LAYER_PREFIX}${slug || 'item'}-${hash.toString(36)}`;
+}
+
+/** 由標註帶的位置算出每一項標註各自的圖元；關掉的項目整組不產生。 */
+export function annotationGroups(input: AnnotationOverlayInput): AnnotationGroup[] {
   const band: SheetRect | null = input.layout.annotation ?? null;
   const rows = annotationRows(input.intent);
   if (!band || rows.length === 0) return [];
 
-  const out: AnnotationPrimitive[] = [];
+  const groups: AnnotationGroup[] = [];
   const scale = input.viewHeight / 100;
   const bx = band.x * SHEET_VIEW_WIDTH;
   const bw = band.w * SHEET_VIEW_WIDTH;
@@ -243,6 +286,8 @@ export function annotationPrimitives(input: AnnotationOverlayInput): AnnotationP
   const x2 = bx + bw * 0.88;
 
   rows.forEach((row, index) => {
+    const layerId = annotationLayerId(row.key);
+    if (input.hidden?.has(layerId)) return;
     const top = by + index * slot;
     const lineY = round(top + slot * 0.62);
     const baseline = round(lineY + size * 0.34);
@@ -251,10 +296,20 @@ export function annotationPrimitives(input: AnnotationOverlayInput): AnnotationP
     const placed = input.placements?.get(row.key.trim());
     const shiftX = placed ? placed.x - left : 0;
     const shiftY = placed ? placed.y - (lineY - size * 0.62) : 0;
-    out.push(...rowPrimitives(row, { left, x1, x2, bw, lineY, baseline, size, shiftX, shiftY }));
+    groups.push({
+      key: row.key,
+      kind: row.kind,
+      layerId,
+      primitives: rowPrimitives(row, { left, x1, x2, bw, lineY, baseline, size, shiftX, shiftY }),
+    });
   });
 
-  return out;
+  return groups;
+}
+
+/** 攤平成一份圖元陣列（畫布與匯出只要結果、不在意分層時使用）。 */
+export function annotationPrimitives(input: AnnotationOverlayInput): AnnotationPrimitive[] {
+  return annotationGroups(input).flatMap((group) => group.primitives);
 }
 
 /**

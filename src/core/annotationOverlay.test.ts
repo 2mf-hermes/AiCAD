@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { annotationBandHeight, annotationPrimitives, annotationRows } from './annotationOverlay';
+import {
+  annotationBandHeight,
+  annotationGroups,
+  annotationLayerId,
+  annotationPrimitives,
+  annotationRows,
+  isAnnotationLayerId,
+} from './annotationOverlay';
 import { buildSheetSvg } from './sheetSvg';
 import { sheetLayout } from './sheetLayout';
 import { sheetFurniture, sheetViewHeight } from './sheetFurniture';
@@ -82,5 +89,41 @@ describe('annotation overlay', () => {
   it('leaves no annotation band when every annotation item is switched off', () => {
     const off = intent({ titleBlock: false, scaleBar: false, dimensions: false, tolerance: false, gdt: false, callouts: false });
     expect(annotationBandHeight(off)).toBe(0);
+  });
+
+  it('gives every annotation item its own layer with its own geometry', () => {
+    const source = intent();
+    const layout = sheetLayout({ titleBlock: true, measurements: true, scaleBar: true, annotation: annotationBandHeight(source) });
+    const viewHeight = sheetViewHeight(WIDTH, HEIGHT);
+    const groups = annotationGroups({ intent: source, layout, viewHeight });
+
+    // 一項標註一層，順序照標註清單，不是照繪製順序。
+    expect(groups.map((group) => group.key)).toEqual(annotationRows(source).map((row) => row.key));
+    expect(new Set(groups.map((group) => group.layerId)).size).toBe(groups.length);
+    for (const group of groups) {
+      expect(isAnnotationLayerId(group.layerId)).toBe(true);
+      expect(group.primitives.length).toBeGreaterThan(0);
+    }
+    // 名稱才是身分：同一項標註重算幾次都落在同一層。
+    expect(annotationLayerId('總長')).toBe(annotationLayerId(' 總長 '));
+    expect(annotationLayerId('總長')).not.toBe(annotationLayerId('厚度'));
+  });
+
+  it('drops a switched-off annotation layer without moving the others', () => {
+    const source = intent();
+    const layout = sheetLayout({ titleBlock: true, measurements: true, scaleBar: true, annotation: annotationBandHeight(source) });
+    const viewHeight = sheetViewHeight(WIDTH, HEIGHT);
+    const all = annotationGroups({ intent: source, layout, viewHeight });
+    const hidden = new Set([all[1].layerId]);
+    const kept = annotationGroups({ intent: source, layout, viewHeight, hidden });
+
+    expect(kept.map((group) => group.key)).toEqual([all[0].key, ...all.slice(2).map((group) => group.key)]);
+    // 位置沿用原來的列序，關掉一項不會讓其他項跳位。
+    expect(kept[0].primitives).toEqual(all[0].primitives);
+    expect(kept[1].primitives).toEqual(all[2].primitives);
+    // 攤平版本同步反映：關掉的項目一列都不留。
+    const flat = annotationPrimitives({ intent: source, layout, viewHeight, hidden });
+    expect(flat).toEqual(kept.flatMap((group) => group.primitives));
+    expect(flat.length).toBeLessThan(annotationPrimitives({ intent: source, layout, viewHeight }).length);
   });
 });

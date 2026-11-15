@@ -3,7 +3,7 @@ import {
   addCadLayer, alignCadEntities, assignCadEntitiesToLayer, cadSnapCandidates, cadSnapCandidatesForModes, cadToleranceForViewport, createArrayOffsets, createCadEntity,
   createCadRectangle, createDefaultCadWorkspace, deleteCadEntities, extendCadEntity, findCadSnap,
   findNearestCadEntity, matchCadProperties, normalizeCadWorkspace, offsetCadEntity, resolveCadCommand,
-  snapCadPoint, translateCadEntity, trimCadEntity, updateCadLayer,
+  snapCadPoint, syncManagedCadLayers, translateCadEntity, trimCadEntity, updateCadLayer,
   type CadEntity,
 } from './cad';
 
@@ -201,5 +201,30 @@ describe('CAD workspace', () => {
     expect(offsetCircle?.id).toBe('circle-copy');
     expect(offsetCircle?.kind === 'circle' ? offsetCircle.radius : 0).toBeCloseTo(.15);
     expect(line).toMatchObject({ id: 'line', start: { y: .2 } });
+  });
+
+  it('syncs managed layers without stealing the active layer or user settings', () => {
+    const managed = (id: string) => id.startsWith('anno-');
+    const base = createDefaultCadWorkspace();
+    const specs = [
+      { id: 'anno-total-1', name: '標註 · 總長' },
+      { id: 'anno-thick-2', name: '標註 · 厚度' },
+    ];
+    const added = syncManagedCadLayers(base, specs, managed);
+    expect(added.layers.map((layer) => layer.id)).toEqual([...base.layers.map((layer) => layer.id), 'anno-total-1', 'anno-thick-2']);
+    expect(added.layers.find((layer) => layer.id === 'anno-total-1')?.name).toBe('標註 · 總長');
+    // 目前圖層不能被補上的圖層搶走，否則使用者下一條線會畫到標註層裡。
+    expect(added.activeLayerId).toBe('geometry');
+    // 沒有變化時回傳同一個物件，避免每次重繪都觸發狀態更新。
+    expect(syncManagedCadLayers(added, specs, managed)).toBe(added);
+    // 使用者關掉的可見度是使用者的設定，重新對齊不該把它打開。
+    const hidden = updateCadLayer(added, 'anno-thick-2', { visible: false });
+    expect(syncManagedCadLayers(hidden, specs, managed).layers.find((layer) => layer.id === 'anno-thick-2')?.visible).toBe(false);
+    // 標註項目被關掉就收掉該層，但畫過線的層留著，不能連帶刪掉圖元。
+    const dropped = syncManagedCadLayers(added, [specs[0]], managed);
+    expect(dropped.layers.map((layer) => layer.id)).not.toContain('anno-thick-2');
+    const drawn: CadEntity = { id: 'e1', kind: 'line', layerId: 'anno-thick-2', color: '#ffffff', start: { x: .1, y: .1 }, end: { x: .2, y: .2 } };
+    const withDrawing = { ...added, entities: [drawn] };
+    expect(syncManagedCadLayers(withDrawing, [specs[0]], managed).layers.map((layer) => layer.id)).toContain('anno-thick-2');
   });
 });

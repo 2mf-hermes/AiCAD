@@ -214,17 +214,52 @@ describe('草稿 → HTML/SVG → 提示詞 → 純生成', () => {
     expect(systemPrompt).not.toContain('one concise geometry paragraph');
   });
 
-  it('草稿失敗時仍保留原本的文字精煉階段', async () => {
+  it('草稿失敗時仍保留原本的文字精煉階段，並改以純 SVG 重擬一次', async () => {
     textReply = async () => 'not svg';
     await generate(intent(), deps(settingsFor()));
-    expect(calls.map((c) => c.mode)).toEqual(['text', 'text', 'image']);
+    /* 精煉 → 草稿 → 純 SVG 重試 → 生圖：草稿失敗不能連精煉成果一起丟掉。 */
+    expect(calls.map((c) => c.mode)).toEqual(['text', 'text', 'text', 'image']);
+    /* 重試那一輪只討線稿，不再要 HTML 版面。 */
+    const retryInstruction = String(calls[2].input.instruction ?? '');
+    expect(retryInstruction).toContain('svg block');
+    expect(retryInstruction).toContain('nothing else');
+    expect(retryInstruction).not.toContain('```html');
   });
 
   it('文字模型回傳非 SVG 時仍完成生成，只是沒有草稿', async () => {
     textReply = async () => 'I cannot help with that.';
     const board = await generate(intent(), deps(settingsFor()));
-    expect(calls.map((c) => c.mode)).toEqual(['text', 'text', 'image']);
+    expect(board.imageRef).toContain('data:image/png;base64,');
     expect(board.resolvedPrompt).not.toContain('construction draft');
+  });
+
+  it('重試拿到的線稿會被採用，並回報成沒有問題的草稿', async () => {
+    let draftRounds = 0;
+    textReply = async (input) => {
+      if (String(input.systemPrompt ?? '').includes('```html')) {
+        draftRounds += 1;
+        return draftRounds === 1 ? 'I cannot draw that.' : SVG_REPLY;
+      }
+      return PROMPT_TEXT;
+    };
+    const runDeps = deps(settingsFor());
+    const onPrepared = vi.fn();
+    await generate(intent(), { ...runDeps, onPrepared });
+    expect(draftRounds).toBe(2);
+    expect(onPrepared).toHaveBeenCalledTimes(1);
+    const prepared = onPrepared.mock.calls[0][0] as { draft: unknown; draftIssue: unknown };
+    expect(prepared.draft).not.toBeNull();
+    expect(prepared.draftIssue).toBeNull();
+  });
+
+  it('兩輪都拿不到線稿時，把草稿失敗的原因回報出去', async () => {
+    textReply = async () => 'I cannot help with that.';
+    const runDeps = deps(settingsFor());
+    const onPrepared = vi.fn();
+    await generate(intent(), { ...runDeps, onPrepared });
+    const prepared = onPrepared.mock.calls[0][0] as { draft: unknown; draftIssue: unknown };
+    expect(prepared.draft).toBeNull();
+    expect(prepared.draftIssue).toBe('unparsed');
   });
 
   it('草稿階段拋錯時不讓整次生成失敗', async () => {

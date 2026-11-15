@@ -10,7 +10,7 @@
 
 param(
     [switch]$SkipWeb,
-    [string]$Version = "0.3.13"
+    [string]$Version = "0.3.14"
 )
 
 $ErrorActionPreference = "Stop"
