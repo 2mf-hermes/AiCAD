@@ -1,6 +1,6 @@
 # AiCAD
 
-AiCAD is a portable Windows application for AI-assisted drawing generation and local 2D CAD editing.
+AiCAD is a portable Windows application for AI-assisted editable 3D modeling and 2D CAD drafting.
 
 **English** | [繁體中文](README.zh-Hant.md) | [简体中文](README.zh-Hans.md)
 
@@ -12,15 +12,17 @@ AiCAD is a portable Windows application for AI-assisted drawing generation and l
 
 ## Features
 
-- Generate drawing images from descriptions, dimensions, reference images and text documents.
-- Draft-first pipeline: a text model produces sanitized SVG geometry to guide image generation. Draft failure falls back to the original generation flow.
-- Separate text, vision, image-generation and inpainting model selections, subject to provider capabilities.
-- Application-rendered title blocks and custom fields, image-model text, or text-model-assisted overlays.
-- Local CAD workspace with layers, object snapping, dimensions and editing commands; project persistence and undo history.
-- Portable single EXE with embedded frontend, Windows icons and single-instance handling.
-- GitHub Releases update source with mandatory SHA-256 verification before installation; local manifest and environment-variable overrides remain available.
 
-**Limits:** AI-generated output is not a validated engineering drawing. Generated images are not automatically converted into editable CAD entities. Review dimensions and geometry before use. AI features require a configured provider, network access and potentially paid API usage. Prompts and attachments are sent to the selected provider.
+- Choose 3D or 2D, describe the design, attach references and optionally refine the prompt.
+- AI produces a structured feature document; local OpenCascade WASM builds editable solids. Invalid output can receive up to three repair attempts.
+- Edit parameters and formulas, select features for local AI changes, suppress features, and undo or redo document edits.
+- Solid operations: boxes, cylinders, spheres, rectangular/circular extrusion, booleans, translation and all-edge fillets/chamfers.
+- Editable lines, rectangles, circles, arcs and text, with layers, move and bounded arrays. Project solids into front/top/right vectors with visible, hidden and center lines.
+- Export STEP/STL/JSON or SVG/DXF, physical-size drawing sheets and 1:1 cutting DXF.
+- Unified AI model or separate refinement, 3D, 2D and reference-vision roles; existing providers and project storage remain available.
+- Legacy image/CAD workspace, Windows icons, single-instance handling and verified GitHub updates remain available.
+
+**Scope:** The engineering workspace supports the operations listed above. Full sketch constraint solving, assemblies, SubD, sweep/revolve/shell, DWG/IGES/Parasolid and vector PDF are not implemented. ISO/JIS/ASME/CNS selections record drawing metadata; they do not certify compliance. Review generated dimensions before manufacturing. AI requires a configured provider; prompts and references are sent to it.
 
 ## Installation & Prerequisites
 
@@ -49,26 +51,17 @@ Output: `dist-exe\AiCad.exe`. The build copies frontend assets to `web\` for Go 
 
 ## Usage
 
-1. Launch the EXE and open provider settings.
-2. Configure the endpoint/API key and select supported text, vision, image-generation and inpainting models.
-3. Choose the drawing type, dimensions, line style and text-rendering mode. Optionally attach reference files.
-4. Generate, inspect the result, edit local CAD objects and save the project.
 
-Example drawing description:
+1. Choose **3D model** or **2D drawing**.
+2. Configure a text-capable provider in Settings, then select unified or separate engineering model roles.
+3. Enter the prompt and optional references, adjust engineering settings, and generate. Prompt refinement is optional.
+4. Edit parameters, select objects for local AI instructions, and save the project. Use **Old drawings** to access existing image projects.
+5. Export solids as STEP/STL, or project to 2D and export SVG/DXF. Cutting DXF uses actual 1:1 coordinates.
 
-```text
-Front view of a flange with a 40 mm central bore and four bolt holes.
-Use black technical lines and an application-rendered title block.
-```
+Example: `Create an 80 × 40 × 12 mm plate with two radius-6 mm through-holes.`
 
-Expected result:
+Expected result: an editable feature document and locally computed solid; actual feature choices depend on the configured model.
 
-```text
-A generated drawing image in the canvas, with the configured title block.
-Geometry and labels vary by model and require manual review.
-```
-
-Development and validation:
 
 ```powershell
 npm run dev       # Frontend preview; desktop host functions need the EXE
@@ -86,7 +79,7 @@ Use Settings → Update to check for a new version. Source precedence is: explic
 Maintainers with an authenticated GitHub CLI can publish from a reviewed, committed checkout:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.2.0
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -Version 0.4.0
 ```
 
 This builds the EXE, writes its checksum and uploads both as release assets. Use a new version number for each release. Checksums detect corruption; they are not a substitute for code signing or a trusted GitHub account.

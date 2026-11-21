@@ -3,6 +3,7 @@ import { normalizeTextLabels } from './textOverlay';
 import { normalizeCadWorkspace, type CadWorkspaceState } from './cad';
 import { normalizeReferences } from './references';
 import { createSafeId } from './projectSafety';
+import { validateEngineeringDocument, type EngineeringDocument } from './geometry/document';
 
 export interface ProjectDocument {
   schemaVersion: 1;
@@ -15,6 +16,8 @@ export interface ProjectDocument {
   masks: MaskRegion[];
   showGrid: boolean;
   cadWorkspace?: CadWorkspaceState;
+  engineering?: EngineeringDocument;
+  engineeringHistory?: EngineeringDocument[];
 }
 
 export interface ProjectMeta {
@@ -165,5 +168,7 @@ export function normalizeProject(value: unknown): ProjectDocument {
     masks: normalizeMasks(raw.masks),
     showGrid: asBoolean(raw.showGrid, true),
     cadWorkspace: normalizeCadWorkspace(asRecord(raw.cadWorkspace)),
+    ...(raw.engineering ? { engineering: validateEngineeringDocument(raw.engineering) } : {}),
+    ...(Array.isArray(raw.engineeringHistory) ? { engineeringHistory: raw.engineeringHistory.slice(-40).flatMap(item => { try { return [validateEngineeringDocument(item)]; } catch { return []; } }) } : {}),
   };
 }

@@ -2,6 +2,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from '../i18n/locales';
 import { ADAPTERS, createDefaultConfig } from './providers/registry';
 import type { LegacyProviderId, ProviderConfig, ProviderType } from './providers/types';
 import { settingsBackend } from './settingsStore';
+import { defaultGeometryModels, normalizeGeometryModels, type GeometryModels } from './geometry/models';
 
 const SCHEMA_VERSION = 3;
 export type ThemeMode = 'dark' | 'light' | 'system';
@@ -16,6 +17,7 @@ export interface Settings {
   /** Preferred instance; fallback continues by priority after this instance. */
   activeImageProvider: string;
   activeTextProvider: string | 'none';
+  geometryModels?: GeometryModels;
   updates: { autoCheck: boolean; channel: UpdateChannel; lastCheckedAt: string };
 }
 
@@ -31,6 +33,7 @@ export function createDefaultSettings(): Settings {
     providers,
     activeImageProvider: 'openai',
     activeTextProvider: 'none',
+    geometryModels: defaultGeometryModels(),
     updates: { autoCheck: true, channel: 'stable', lastCheckedAt: '' },
   };
 }
@@ -70,6 +73,7 @@ export function normalizeSettings(value: unknown, base = createDefaultSettings()
     },
     providers,
     activeImageProvider: providers.some((p) => p.id === image && p.enabled && p.capabilities.imageGenerate) ? image : firstEnabledCapable(providers, 'imageGenerate', base.activeImageProvider),
+    geometryModels: normalizeGeometryModels(parsed.geometryModels),
     activeTextProvider: text === 'none' ? 'none' : providers.some((p) => p.id === text && p.enabled && p.capabilities.text) ? text : 'none',
     updates: {
       autoCheck: isRecord(parsed.updates) && typeof parsed.updates.autoCheck === 'boolean' ? parsed.updates.autoCheck : base.updates.autoCheck,

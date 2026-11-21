@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeProject } from './projects';
+import { emptyEngineeringDocument } from './geometry/document';
 
 describe('normalizeProject', () => {
+  it('opens valid geometry even when one undo snapshot is corrupt', () => {
+    const engineering = emptyEngineeringDocument('3d');
+    const project = normalizeProject({ engineering, engineeringHistory: [null, engineering, { schemaVersion: 999 }] });
+    expect(project.engineering).toEqual(engineering);
+    expect(project.engineeringHistory).toEqual([engineering]);
+  });
+  it('round-trips engineering geometry and undo history alongside legacy data', () => {
+    const initial = emptyEngineeringDocument('3d');
+    const current = structuredClone(initial);
+    current.features.push({ id: 'box', name: 'Base', type: 'box', inputs: [], params: { width: 80, height: 40, depth: 12 } });
+    const project = normalizeProject({ id: initial.id, name: 'Engineering', intent: { subject: 'Original' }, engineering: current, engineeringHistory: [initial] });
+    const restored = normalizeProject(JSON.parse(JSON.stringify(project)));
+    expect(restored.engineering).toEqual(current);
+    expect(restored.engineeringHistory).toEqual([initial]);
+    expect(restored.intent.subject).toBe('Original');
+  });
   it('loads a minimal historic project with missing modern fields', () => {
     const project = normalizeProject({ id: 'legacy', name: 'Old drawing', intent: { subject: 'Bracket' }, history: [] });
     expect(project.id).toBe('legacy');

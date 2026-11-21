@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EngineeringWorkspace } from './ui/EngineeringWorkspace';
 import { generate, inpaint, type RunProgress } from './core/pipeline/orchestrator';
 import { DraftCache, generationKey, type DraftIssue, type PreparedGeneration } from './core/pipeline/draftCache';
 import type { DraftSvg } from './core/pipeline/draft';
@@ -84,6 +85,8 @@ type RunState =
 export default function App() {
   const [settings, setSettings] = useState<Settings>(createDefaultSettings);
   const [hydrated, setHydrated] = useState(false);
+  const [legacyWorkspace, setLegacyWorkspace] = useState(false);
+  const [legacyProjectId, setLegacyProjectId] = useState<string | null>(null);
   /* 開機自動檢查的結果。與設定頁各自獨立：這邊只負責「啟動時發現有新版」
      就提示一次，不做下載（下載仍在設定 → 更新頁，流程與狀態機都完整）。 */
   const [autoUpdateInfo, setAutoUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -152,12 +155,14 @@ export default function App() {
 
   return (
     <I18nProvider locale={settings.language}>
-      <Workspace
+      {!legacyWorkspace && hydrated ? <EngineeringWorkspace settings={settings} onSettings={setSettings} onLegacy={(id) => { setLegacyProjectId(id ?? null); setLegacyWorkspace(true); }} settingsCategory={settingsCategory} onSettingsCategory={setSettingsCategory} /> : <Workspace
+        onEngineering={() => setLegacyWorkspace(false)}
+        initialProjectId={legacyProjectId}
         settings={settings}
         onSettings={setSettings}
         settingsCategory={settingsCategory}
         onSettingsCategory={setSettingsCategory}
-      />
+      />}
       {autoUpdateInfo && (
         <UpdatePromptDialog
           version={autoUpdateInfo.version}
@@ -173,11 +178,15 @@ export default function App() {
 }
 
 function Workspace({
+  onEngineering,
+  initialProjectId,
   settings,
   onSettings,
   settingsCategory,
   onSettingsCategory,
 }: {
+  onEngineering: () => void;
+  initialProjectId?: string | null;
   settings: Settings;
   onSettings: (s: Settings) => void;
   /** 設定頁要開啟的分頁；由 App 層的更新提示指定（updates）。 */
@@ -434,6 +443,14 @@ function Workspace({
     }
     await loadSelectedProject(id);
   }, [busy, hasUnsavedChanges, loadSelectedProject]);
+
+  const initialProjectLoaded = useRef(false);
+  useEffect(() => {
+    if (initialProjectId && !initialProjectLoaded.current) {
+      initialProjectLoaded.current = true;
+      void loadSelectedProject(initialProjectId);
+    }
+  }, [initialProjectId, loadSelectedProject]);
 
   const removeProject = useCallback(async (id: string) => {
     setProjectDialog({ kind: 'delete', id });
@@ -1173,6 +1190,7 @@ function Workspace({
       {projectsOpen && (
         <ProjectSheet projects={projects} busy={busy} onOpen={(id) => void openProject(id)} onDelete={(id) => void removeProject(id)} onClose={() => setProjectsOpen(false)} />
       )}
+      <button className="legacy-engineering-return" disabled={busy} onClick={() => { if (!hasUnsavedChanges || window.confirm(t.project.closeConfirm)) onEngineering(); }}>3D／2D 工作區</button>
       {projectDialog && (
         <div className="utility-dialog-backdrop" role="presentation" onMouseDown={() => setProjectDialog(null)}>
           <section className="utility-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
