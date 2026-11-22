@@ -1,7 +1,7 @@
 {
   "name": "ai-cad",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "AiCAD — AI-assisted editable 3D modeling and 2D CAD drafting",
   "scripts": {

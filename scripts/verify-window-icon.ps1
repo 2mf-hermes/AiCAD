@@ -21,10 +21,14 @@ $ICON_SMALL = [IntPtr]0
 $ICON_BIG = [IntPtr]1
 $GCLP_HICON = -14
 $GCLP_HICONSM = -34
-$small = [AiCadIconProbe]::SendMessage($hwnd, $WM_GETICON, $ICON_SMALL, [IntPtr]0)
-$big = [AiCadIconProbe]::SendMessage($hwnd, $WM_GETICON, $ICON_BIG, [IntPtr]0)
-$classSmall = [AiCadIconProbe]::GetClassLongPtr($hwnd, $GCLP_HICONSM)
-$classBig = [AiCadIconProbe]::GetClassLongPtr($hwnd, $GCLP_HICON)
+for ($attempt = 0; $attempt -lt 40; $attempt++) {
+    $small = [AiCadIconProbe]::SendMessage($hwnd, $WM_GETICON, $ICON_SMALL, [IntPtr]0)
+    $big = [AiCadIconProbe]::SendMessage($hwnd, $WM_GETICON, $ICON_BIG, [IntPtr]0)
+    $classSmall = [AiCadIconProbe]::GetClassLongPtr($hwnd, $GCLP_HICONSM)
+    $classBig = [AiCadIconProbe]::GetClassLongPtr($hwnd, $GCLP_HICON)
+    if ($small -ne [IntPtr]::Zero -and $big -ne [IntPtr]::Zero -and $classSmall -ne [IntPtr]::Zero -and $classBig -ne [IntPtr]::Zero) { break }
+    Start-Sleep -Milliseconds 250
+}
 
 [pscustomobject]@{
     ProcessId = $ProcessId

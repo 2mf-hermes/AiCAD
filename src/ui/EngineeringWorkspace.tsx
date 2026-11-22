@@ -10,7 +10,7 @@ import { generateEngineeringDocument, refineEngineeringPrompt } from '../core/ge
 import { geometryProvider } from '../core/geometry/models';
 import { exportVectorDxf, exportVectorSvg, vectorNumbers } from '../core/geometry/vector';
 import { exportDrawingSheet } from '../core/geometry/sheet';
-import { arrayVectors, moveVector } from '../core/geometry/edit';
+import { arrayVectors, moveVector, offsetVector, transformVectors } from '../core/geometry/edit';
 import { Button, Field, Segmented } from './primitives';
 import { ReferencePanel } from './ReferencePanel';
 import { SettingsSheet } from './SettingsSheet';
@@ -32,6 +32,8 @@ export function EngineeringWorkspace({ settings, onSettings, onLegacy, settingsC
   const [projects, setProjects] = useState<ProjectMeta[] | null>(null); const [view, setView] = useState('iso');
   const [dirty, setDirty] = useState(false); const [savedProject, setSavedProject] = useState<ProjectDocument | null>(null);
   const [offset, setOffset] = useState({ x: 10, y: 0, count: 2 });
+  const [offsetDistance, setOffsetDistance] = useState(2);
+  const [transform, setTransform] = useState({ x: 0, y: 0, angle: 90 });
   const client = useRef(new GeometryClient()); const controller = useRef<AbortController | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const mutationLock = useRef(false);
@@ -68,6 +70,15 @@ export function EngineeringWorkspace({ settings, onSettings, onLegacy, settingsC
     finally { mutationLock.current = false; setBusy(false); }
   }
   function select(id: string, additive: boolean) { setSelected(old => !id ? [] : additive ? old.includes(id) ? old.filter(v => v !== id) : [...old, id] : [id]); }
+  function restoreHistory(direction: 'undo' | 'redo') {
+    if (busy || mutationLock.current) return;
+    const source = direction === 'undo' ? undo : redo;
+    const next = source[source.length - 1];
+    if (!next) return;
+    if (direction === 'undo') { setRedo(old => [...old.slice(-38), doc]); setUndo(old => old.slice(0, -1)); }
+    else { setUndo(old => [...old.slice(-38), doc]); setRedo(old => old.slice(0, -1)); }
+    setDoc(next); setSelected([]); setError(''); setDirty(true); setStatus(direction === 'undo' ? '已復原' : '已重做');
+  }
   async function generate(local = false, refine = false) {
     if (busy) return;
     const request = refine ? prompt : command || prompt;
@@ -140,7 +151,7 @@ export function EngineeringWorkspace({ settings, onSettings, onLegacy, settingsC
       <details className="engineering-section"><summary>AI 模型分工</summary><GeometryModels settings={settings} onChange={onSettings} /></details>
     </fieldset></aside>
     <main className="engineering-main"><nav className="engineering-tools" aria-label="幾何工具">
-      <Button size="sm" disabled={!undo.length || busy} onClick={() => { setRedo(old => [...old, doc]); setDoc(undo[undo.length - 1]); setUndo(old => old.slice(0, -1)); setDirty(true); }}>復原</Button><Button size="sm" disabled={!redo.length || busy} onClick={() => { setUndo(old => [...old, doc]); setDoc(redo[redo.length - 1]); setRedo(old => old.slice(0, -1)); setDirty(true); }}>重做</Button>
+      <Button size="sm" disabled={!undo.length || busy} onClick={() => restoreHistory('undo')}>復原</Button><Button size="sm" disabled={!redo.length || busy} onClick={() => restoreHistory('redo')}>重做</Button>
       {(doc.mode === '3d' ? [{ type: 'box', label: '方體' }, { type: 'cylinder', label: '圓柱' }, { type: 'sphere', label: '球體' }] : [{ type: 'line', label: '直線' }, { type: 'rect', label: '矩形' }, { type: 'circle', label: '圓' }]).map(tool => <Button key={tool.type} size="sm" disabled={busy} onClick={() => add(tool.type)}>{tool.label}</Button>)}
       {doc.mode === '3d' && ['iso', 'front', 'top', 'right'].map((direction, i) => <Button key={direction} size="sm" onClick={() => setView(direction)}>{['等角', '正視', '俯視', '右視'][i]}</Button>)}
       {doc.mode === '3d' && <details className="engineering-operations"><summary>實體操作</summary><div>{(['union', 'cut', 'intersect', 'translate', 'fillet', 'chamfer'] as const).map((type, index) => <Button key={type} size="sm" disabled={busy || selected.length !== (index < 3 ? 2 : 1)} onClick={() => operation(type)}>{['聯集', '差集（依樹順序）', '交集', '平移', '全邊圓角', '全邊倒角'][index]}</Button>)}</div></details>}
@@ -153,6 +164,8 @@ export function EngineeringWorkspace({ settings, onSettings, onLegacy, settingsC
     <aside className="engineering-inspector"><fieldset disabled={busy} className="engineering-edit-fields"><h2>{doc.mode === '3d' ? '特徵樹' : '圖層與實體'}</h2><div className="engineering-tree">{items.map((it, index) => <button key={it.id} className={selected.includes(it.id) ? 'is-selected' : ''} onClick={e => select(it.id, e.ctrlKey || e.metaKey)}><span>{String(index + 1).padStart(2, '0')}</span>{'name' in it ? it.name : `${it.layer} / ${it.type}`}</button>)}</div>
       {item && <div className="engineering-section"><h3>參數</h3>{Object.entries(item.params).map(([key, value]) => <Field key={`${item.id}-${key}-${value}`} label={key}><input defaultValue={String(value)} onBlur={e => { if (e.target.value !== String(value)) updateItem({ ...item.params, [key]: Number.isFinite(Number(e.target.value)) && e.target.value.trim() ? Number(e.target.value) : e.target.value }); }} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} /></Field>)}<Button size="sm" disabled={busy} onClick={() => { if (!window.confirm('刪除選取項目？相依特徵需要先移除。')) return; void commit({ ...doc, features: doc.features.filter(it => !selected.includes(it.id)), entities: doc.entities.filter(it => !selected.includes(it.id)) }); }}>刪除選取</Button></div>}
       {doc.mode === '2d' && selected.length > 0 && <div className="engineering-section"><h3>選取實體操作</h3>{(['x', 'y', 'count'] as const).map(key => <Field key={key} label={key === 'count' ? '陣列總份數' : `${key.toUpperCase()} 位移（${doc.settings.units}）`}><input type="number" value={offset[key]} onChange={e => setOffset({ ...offset, [key]: Number(e.target.value) })} /></Field>)}<Button size="sm" onClick={() => { try { void commit({ ...doc, entities: doc.entities.map(entity => selected.includes(entity.id) ? moveVector(entity, doc, offset.x, offset.y) : entity) }); } catch (e) { setError((e as Error).message); } }}>移動</Button><Button size="sm" onClick={() => { try { void commit(arrayVectors(doc, selected, offset.count, offset.x, offset.y)); } catch (e) { setError((e as Error).message); } }}>建立線性陣列</Button><Field label="選取實體圖層"><input key={selected.join(',')} defaultValue={doc.entities.find(entity => selected.includes(entity.id))?.layer ?? 'geometry'} onBlur={e => { const layer = e.target.value.trim(); if (layer) void commit({ ...doc, entities: doc.entities.map(entity => selected.includes(entity.id) ? { ...entity, layer } : entity) }); }} /></Field></div>}
+      {doc.mode === '2d' && selected.length > 0 && <div className="engineering-section"><Field label={`輪廓偏移距離（${doc.settings.units}）`}><input type="number" value={offsetDistance} onChange={e => setOffsetDistance(Number(e.target.value))} /></Field><p>正值向直線左側偏移，或擴大圓與矩形。</p><Button size="sm" onClick={() => { try { const copies = doc.entities.filter(entity => selected.includes(entity.id)).map(entity => ({ ...offsetVector(entity, doc, offsetDistance), id: crypto.randomUUID() })); void commit({ ...doc, entities: [...doc.entities, ...copies] }); } catch (e) { setError(e instanceof Error ? e.message : '偏移失敗'); } }}>建立偏移副本</Button></div>}
+      {doc.mode === '2d' && selected.length > 0 && <details className="engineering-section"><summary>旋轉與鏡射</summary>{(['x', 'y', 'angle'] as const).map(key => <Field key={key} label={key === 'angle' ? '逆時針角度（°）' : `基準 ${key.toUpperCase()}（${doc.settings.units}）`}><input type="number" value={transform[key]} onChange={e => setTransform({ ...transform, [key]: Number(e.target.value) })} /></Field>)}<p>旋轉矩形會轉為四條直線。</p>{(['rotate', 'mirrorX', 'mirrorY'] as const).map((operation, index) => <Button key={operation} size="sm" onClick={() => { try { void commit(transformVectors(doc, selected, operation, transform.x, transform.y, transform.angle)); } catch (e) { setError(e instanceof Error ? e.message : '轉換失敗'); } }}>{['旋轉', '沿水平基準鏡射', '沿垂直基準鏡射'][index]}</Button>)}</details>}
       <details className="engineering-section"><summary>共用參數</summary>{Object.entries(doc.parameters).map(([key, value]) => <Field label={key} key={`${key}-${value}`}><input defaultValue={String(value)} onBlur={e => void commit({ ...doc, parameters: { ...doc.parameters, [key]: e.target.value } })} /></Field>)}</details>
       <div className="engineering-section"><Button size="sm" onClick={() => importInput.current?.click()}>匯入幾何 JSON</Button><input hidden type="file" accept=".json" ref={importInput} onChange={e => { const file = e.target.files?.[0]; if (file && file.size < 5000000) void file.text().then(text => commit({ ...validateEngineeringDocument(JSON.parse(text)), id: doc.id })).catch(() => setError('無效幾何文件')); e.target.value = ''; }} /></div>
     </fieldset></aside>
